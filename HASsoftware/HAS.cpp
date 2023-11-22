@@ -21,11 +21,11 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
                      size_t T,                       /* number of MCMC steps        */
                      double eps,                     /* squish parameter            */
                      double dt,                      /* time step size in RATTLE integrator                                    */
-                     double Nsoft,                   /* number of Soft Moves: Gaussian Metropolis move to resample position q  */
-                     double Nrattle,                 /* number of Rattle steps      */
+                     int Nsoft,                   /* number of Soft Moves: Gaussian Metropolis move to resample position q  */
+                     int Nrattle,                 /* number of Rattle steps         */
                      DynamicVector<double>& q0,      /* starting position              */
                      DynamicVector<double>& p0,      /* starting momentum              */
-                     Model M,                        /* evaluate q(x) and grad q(x) */
+                     Model M,                        /* evaluate q(x) and grad q(x)    */
                      double sq,                      /* isotropic gaussian standard dev. for Position Soft move     */
                      double sp,                      /* isotropic gaussian standard dev. for Momentum Soft move     */
                      double neps,                    /* convergence tolerance for Newton projection                 */
@@ -137,13 +137,18 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
    xiq  = M.xi(q);       // constraint function evaluated at starting point
    gxiq = M.gxi(q);      // gradient of constraint function at starting point
    
-   
+   int Nsample = -1; // we will increment this varialble each time a new sample is stored in chain[]
    int nsteps = 0;   // will be used to count how many RATTLE forward time-steps are taken before a failed projection
+   
    
    
    //    Start MCMC loop
    
    for (unsigned int iter = 0; iter < T; iter++){
+      
+      //cout << "------" << endl;
+      //cout << q << endl;
+      //cout << norm( p ) << endl;
       
       //----------------------------------------------Position-Momentum resampling Metropolis-Hastings---------------------------------------------
       
@@ -218,214 +223,222 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
          else {                                       // process a rejected proposal
          }
          
+         Nsample++;
          for ( int k = 0; k < d; k++){    // add sample to Schain here
-            chain[ k + d * iter ]  = q[k];    // value of q[k] where q is iter-th position sample
+            chain[ k + d * Nsample ]  = q[k];    // value of q[k] where q is iter-th position sample
          }
-      } // end of Metropolis move
+         
+      } // end of Soft Metropolis move
       
       //---------------------------------------------------------------RATTLE steps------------------------------------------------------------------
       
-      stats-> HardSample++;     // one Rattle move
-      
-      z     = xiq;        // need the level z = S_xi(q1), actually have xiq from isotropic Metropolis above, can re-use that !!
-      q1     = q;         // initial position for RATTLE iteration
-      p1     = p;         // initial momentum for RATTLE iteration
-      gxiq1  = gxiq;
-      
-      nsteps = 0;            // reset nsteps
-      
-      // Take "Nrattle" time steps using RATTLE integrator : (q, p) --> (q2, p2)
-      
-      for (unsigned int i = 0; i < Nrattle; i++){
+      if ( Nrattle  > 0 ){
          
-         rtFlag = starting_proj_q2;  // start q2 projection
+         stats-> HardSample++;     // one Rattle move
          
-         //    First, project q1 + dt*p1 onto the constraint surface S_z
-         //    Newton loop to find q2 = q1 + dt*p1 + grad(xi)(q1)*a with xi(q2)=xi(q1)=z
-         a = 0;                     // starting coefficient
-         q2    = q1 + dt * p1;       // initial guess = move in the tangent direction
-         gxiq2 = M.gxi(q2);          // because these are calculated at the end of this loop
-         for ( int ni = 0; ni < itm; ni++){
-            r     = z - M.xi(q2);              // equation residual
-            gtq2gq1 = trans( gxiq2 )*gxiq1;    // Newton Jacobian matrix
-            solve( dt * gtq2gq1, da, r);       // solve the linear system; Note the * dt on LHS
-            q2  +=  dt * gxiq1*da;             // take the Newton step;    Note the * dt when updating
-            a  += da;                          // need the coefficient to update momentum later
-            gxiq2 = M.gxi(q2);                 // constraint gradient at the new point (for later)
-            if ( norm(r) <= neps ) {
-               rtFlag = q2_proj_worked;     // record that you found q2
-               nsteps++;          // increment number of successful projection steps in forward RATTLE, needed for later
-               break;                      // stop the Newton iteration
-            }  // end of norm(r) check
-         }   // end of Newton solver loop
-         
-         if ( rtFlag != q2_proj_worked ){  // as soon as there is one failed forward q-projection ...
-            stats->HardFailedProjection_q2++;
-            break;  //  ... we break the forward RATTLE loop and reject the proposal and
-         }
-         
-         //  ... otherwise continue and project momentum p2 = p1 + grad(xi)(q1)*a onto T_q2
-         p2    = p1 + gxiq1*a;
-         gtygy = trans( gxiq2 )*gxiq2;
-         r     = - trans( gxiq2 )*p2;
-         solve( gtygy, a, r);
-         
-         // Set the new state to be the one produced by RATTLE iteration above
-         p2    = p2 + gxiq2*a;
-         // q2 already set at the end of Newton iteration
-         // end of RATTLE integrator single step
-         
-         // re-initialize for next iteration
-         q1 = q2;
-         p1 = p2;
-         gxiq1 = gxiq2;
-         
-         if ( nsteps == Nrattle ){  // If we had Nrattle successfull forward RATTLE projection ...
-            rtFlag = RATTLE_sequence_worked;
-            qn = q2;   // ... save the proposal for Metropolis check below
-            pn = p2;
-            gxiqn = gxiq2;
-         }
-      } // end of forward RATTLE loop
-      
-      if ( rtFlag == RATTLE_sequence_worked ){  // if forward RATTLE steps were all successful --> do the REVERSE CHECK !! :
+         z     = xiq;        // need the level z = S_xi(q1), actually have xiq from isotropic Metropolis above, can re-use that !!
+         q1     = q;         // initial position for RATTLE iteration
+         p1     = p;         // initial momentum for RATTLE iteration
+         gxiq1  = gxiq;
          
          nsteps = 0;            // reset nsteps
          
-      // (1) apply RATTLE integrator "Nrattle" times to starting from (q2, -p2) to get (qr, pr)
+         // Take "Nrattle" time steps using RATTLE integrator : (q, p) --> (q2, p2)
          
-         p2    = - p2;   // apply first ** Momentum Reversal ** for reverse move / check
-         
-         for (unsigned int i = 0; i < Nrattle; i++){ // Take Nrattle reverse time steps using RATTLE integrator :
+         for (unsigned int i = 0; i < Nrattle; i++){
             
-            rtFlag = starting_proj_qr;    // start qr projection
-            //    Project q2 + dt*p2 onto the constraint surface S_z, check if the result is = q
-            //    Newton loop to find qr = q2 + dt*p2 + grad(xi)(q2)*a with xi(qr) = xi(q2)= xi(q1) = z
+            rtFlag = starting_proj_q2;  // start q2 projection
+            
+            //    First, project q1 + dt*p1 onto the constraint surface S_z
+            //    Newton loop to find q2 = q1 + dt*p1 + grad(xi)(q1)*a with xi(q2)=xi(q1)=z
             a = 0;                     // starting coefficient
-            qr    = q2 + dt * p2;       // initial guess = move in the tangent direction
-            gxiqr = M.gxi(qr);           // because these are calculated at the end of this loop
+            q2    = q1 + dt * p1;       // initial guess = move in the tangent direction
+            gxiq2 = M.gxi(q2);          // because these are calculated at the end of this loop
             for ( int ni = 0; ni < itm; ni++){
-               r     = z - M.xi(qr);            // equation residual (we project onto same level set as for starting point q)
-               gtqrgq2 = trans( gxiqr )*gxiq2;  // Newton Jacobian matrix;
-               solve( dt * gtqrgq2, da, r);     // solve the linear system; Note the * dt on LHS  ...!!
-               qr +=  dt * gxiq2*da;            // take the Newton step;    Note the * dt when updating ...!!
-               a  += da;                        // need the coefficient to update momentum later
-               gxiqr = M.gxi(qr);               // constraint gradient at the new point (for later)
-               if ( norm(r) <= neps ) {    // If Newton step converged ...
-                  rtFlag = qr_proj_worked;
-                  nsteps++;
-                  break;                   // stop the Newton iteration, it converged
-               }   // end of norm(r) check
-            }    // end of Newton solver loop
+               r     = z - M.xi(q2);              // equation residual
+               gtq2gq1 = trans( gxiq2 )*gxiq1;    // Newton Jacobian matrix
+               solve( dt * gtq2gq1, da, r);       // solve the linear system; Note the * dt on LHS
+               q2  +=  dt * gxiq1*da;             // take the Newton step;    Note the * dt when updating
+               a  += da;                          // need the coefficient to update momentum later
+               gxiq2 = M.gxi(q2);                 // constraint gradient at the new point (for later)
+               if ( norm(r) <= neps ) {
+                  rtFlag = q2_proj_worked;     // record that you found q2
+                  nsteps++;          // increment number of successful projection steps in forward RATTLE, needed for later
+                  break;                      // stop the Newton iteration
+               }  // end of norm(r) check
+            }   // end of Newton solver loop
             
-            if ( rtFlag != qr_proj_worked ){   // as soon as there is one failed reverse q-projection ...
-               stats->HardFailedProjection_qr++;
-               break;
+            if ( rtFlag != q2_proj_worked ){  // as soon as there is one failed forward q-projection ...
+               stats->HardFailedProjection_q2++;
+               break;  //  ... we break the forward RATTLE loop and reject the proposal and
             }
             
-            //  ... otherwise continue and project momentum pr = Proj ( p2 + grad(xi)(q2)*a )  onto T_qr
-            pr    = p2 + gxiq2*a;
-            gtygy = trans( gxiqr )*gxiqr;
-            r     = - trans( gxiqr )*pr;
+            //  ... otherwise continue and project momentum p2 = p1 + grad(xi)(q1)*a onto T_q2
+            p2    = p1 + gxiq1*a;
+            gtygy = trans( gxiq2 )*gxiq2;
+            r     = - trans( gxiq2 )*p2;
             solve( gtygy, a, r);
             
-            pr    = pr + gxiqr*a;
-            // qr already set at the end of Newton iteration
+            // Set the new state to be the one produced by RATTLE iteration above
+            p2    = p2 + gxiq2*a;
+            // q2 already set at the end of Newton iteration
             // end of RATTLE integrator single step
             
             // re-initialize for next iteration
-            q2 = qr;
-            p2 = pr;
-            gxiq2 = gxiqr;
+            q1 = q2;
+            p1 = p2;
+            gxiq1 = gxiq2;
             
-            if ( nsteps == Nrattle ){  // If we had Nrattle successfull reverse RATTLE projection --> go on with reverse check
-               rtFlag = RATTLE_sequence_worked_rev;
+            if ( nsteps == Nrattle ){  // If we had Nrattle successfull forward RATTLE projection ...
+               rtFlag = RATTLE_sequence_worked;
+               qn = q2;   // ... save the proposal for Metropolis check below
+               pn = p2;
+               gxiqn = gxiq2;
             }
-         } // end of reverse RATTLE loop
+         } // end of forward RATTLE loop
          
-         if ( rtFlag == RATTLE_sequence_worked_rev ){  // if reverse RATTLE projections were ALL successfull, go on with reverse check
+         if ( rtFlag == RATTLE_sequence_worked ){  // if forward RATTLE steps were all successful --> do the REVERSE CHECK !! :
             
-      // (2) Check whether (qr, -pr) = (q, p) ?
+            nsteps = 0;            // reset nsteps
             
-            pr = - pr;  // apply second  ** Momentum Reversal ** for reverse move / check
+            // (1) apply RATTLE integrator "Nrattle" times to starting from (q2, -p2) to get (qr, pr)
             
-            if ( norm( qr - q ) < rrc ) {      // ... did reverse RATTLE go back to the right point?
-               rtFlag = q_reverse_check_worked;
-            } else {
-               stats->HardRejectionReverseCheck_q++; // converged to the wrong point --> a failure
+            p2    = - p2;   // apply first ** Momentum Reversal ** for reverse move / check
+            
+            for (unsigned int i = 0; i < Nrattle; i++){ // Take Nrattle reverse time steps using RATTLE integrator :
+               
+               rtFlag = starting_proj_qr;    // start qr projection
+               //    Project q2 + dt*p2 onto the constraint surface S_z, check if the result is = q
+               //    Newton loop to find qr = q2 + dt*p2 + grad(xi)(q2)*a with xi(qr) = xi(q2)= xi(q1) = z
+               a = 0;                     // starting coefficient
+               qr    = q2 + dt * p2;       // initial guess = move in the tangent direction
+               gxiqr = M.gxi(qr);           // because these are calculated at the end of this loop
+               for ( int ni = 0; ni < itm; ni++){
+                  r     = z - M.xi(qr);            // equation residual (we project onto same level set as for starting point q)
+                  gtqrgq2 = trans( gxiqr )*gxiq2;  // Newton Jacobian matrix;
+                  solve( dt * gtqrgq2, da, r);     // solve the linear system; Note the * dt on LHS  ...!!
+                  qr +=  dt * gxiq2*da;            // take the Newton step;    Note the * dt when updating ...!!
+                  a  += da;                        // need the coefficient to update momentum later
+                  gxiqr = M.gxi(qr);               // constraint gradient at the new point (for later)
+                  if ( norm(r) <= neps ) {    // If Newton step converged ...
+                     rtFlag = qr_proj_worked;
+                     nsteps++;
+                     break;                   // stop the Newton iteration, it converged
+                  }   // end of norm(r) check
+               }    // end of Newton solver loop
+               
+               if ( rtFlag != qr_proj_worked ){   // as soon as there is one failed reverse q-projection ...
+                  stats->HardFailedProjection_qr++;
+                  break;
+               }
+               
+               //  ... otherwise continue and project momentum pr = Proj ( p2 + grad(xi)(q2)*a )  onto T_qr
+               pr    = p2 + gxiq2*a;
+               gtygy = trans( gxiqr )*gxiqr;
+               r     = - trans( gxiqr )*pr;
+               solve( gtygy, a, r);
+               
+               pr    = pr + gxiqr*a;
+               // qr already set at the end of Newton iteration
+               // end of RATTLE integrator single step
+               
+               // re-initialize for next iteration
+               q2 = qr;
+               p2 = pr;
+               gxiq2 = gxiqr;
+               
+               if ( nsteps == Nrattle ){  // If we had Nrattle successfull reverse RATTLE projection --> go on with reverse check
+                  rtFlag = RATTLE_sequence_worked_rev;
+               }
+            } // end of reverse RATTLE loop
+            
+            if ( rtFlag == RATTLE_sequence_worked_rev ){  // if reverse RATTLE projections were ALL successfull, go on with reverse check
+               
+               // (2) Check whether (qr, -pr) = (q, p) ?
+               
+               pr = - pr;  // apply second  ** Momentum Reversal ** for reverse move / check
+               
+               if ( norm( qr - q ) < rrc ) {      // ... did reverse RATTLE go back to the right point?
+                  rtFlag = q_reverse_check_worked;
+               } else {
+                  stats->HardRejectionReverseCheck_q++; // converged to the wrong point --> a failure
+                  stats->HardRejectionReverseCheck++;   // so reject proposal
+               }
+               
+               if ( rtFlag == q_reverse_check_worked) {
+                  
+                  if (norm( pr - p ) < rrc) {
+                     rtFlag = reverse_check_worked;
+                  } else{
+                     rtFlag = p_reverse_check_failed;
+                     stats->HardRejectionReverseCheck_p++;
+                  }
+               }
+               
+            } else {  // if one of the reverse RATTLE projections failed --> another kind of failure
+               stats->HardRejectionReverseCheck_q++;
                stats->HardRejectionReverseCheck++;   // so reject proposal
             }
             
-            if ( rtFlag == q_reverse_check_worked) {
-               
-               if (norm( pr - p ) < rrc) {
-                  rtFlag = reverse_check_worked;
-               } else{
-                  rtFlag = p_reverse_check_failed;
-                  stats->HardRejectionReverseCheck_p++;
-               }
+         }  // end of overall reverse check
+         
+         // Metropolis detailed balance check for (q,p) --> (qn, pn) :
+         
+         if ( rtFlag == reverse_check_worked ){  // do Metropolis check only if reverse check was successful
+            
+            Agxiq = M.Agxi(gxiq);        // add d-n column of zeros to gxiq to get full SVD, needed to get Tq = last d-n columns of U
+            svd( Agxiq, U, s, Vtr);        // Computing the singular values and vectors of gxiq
+            // multiply singular values to get detq = sqrt( det(gxiq^t gxiq) ) = det(S) (for RATTLE move later)
+            detq = 1.;
+            for ( unsigned long int i = 0; i < m; i++){
+               detq *= s[i];    // detq = sqrt( det(gxiq^t gxiq) ) = det(S)
             }
             
-         } else {  // if one of the reverse RATTLE projections failed --> another kind of failure
-            stats->HardRejectionReverseCheck_q++;
-            stats->HardRejectionReverseCheck++;   // so reject proposal
+            Agxiqn = M.Agxi(gxiqn);          // add d-n column of zeros to gxiq to get full SVD, needed to get Tqn = last d-n columns of U
+            svd( Agxiqn, U, s, Vtr);        // Computing the singular values and vectors of gxiqn
+            // multiply singular values to get detqn = r(qn) = sqrt( det(gxiy^t gxiy) ) = det(S)
+            detqn = 1.;
+            for ( unsigned long int i = 0; i < m; i++){
+               detqn *= s[i];    // detqn = sqrt( det(gxiy^t gxiy) ) = det(S)
+            }
+            
+            p_sqn  = sqrNorm( p );   // |p|^2  for M-H ratio
+            pn_sqn = sqrNorm( pn );  // |pn|^2 for M-H ratio
+            
+            // NOTE: Here can add V(q) and V(qn) to M-H ratio, for now assume V=0
+            
+            A  = exp( .5*( p_sqn - pn_sqn ) ); //  part of the Metropolis ratio
+            A *= ( detq / detqn );    // since r(q)/r(qn) = detq/detqn
+            
+            if ( SU(RG) > A ){      // Accept with probability A,
+               stats->HardRejectionMetropolis++;
+            }
+            else{
+               rtFlag = Met_acc_rt;                       // accepted
+            }    // Metropolis rejection step done
+         } // end of overall Metropolis check
+         
+         if ( rtFlag ==  Met_acc_rt) {     //  process an accepted proposal
+            q   = qn;
+            p   = pn;
+            gxiq = gxiqn;     // update gradient
+            stats-> HardSampleAccepted++;
+         }
+         else {         // process a rejected proposal
+            
+            p = - p;   // very important: apply ** MOMENTUM REVERSAL ** in the rejection step !!
+            
          }
          
-      }  // end of overall reverse check
+         if ( Nsoft == 0 ){  // ONLY FOR DEBUGGING : store the sample when number of Soft moves = 0
+            Nsample++;
+            for ( int k = 0; k < d; k++){
+               chain[ k + d * Nsample] = q[k];
+            }
+         } // end of DEBUGGING secton
+         
+      }  // end of RATTLE move
       
-   // Metropolis detailed balance check for (q,p) --> (qn, pn) :
-
-      if ( rtFlag == reverse_check_worked ){  // do Metropolis check only if reverse check was successful
-         
-         Agxiq = M.Agxi(gxiq);        // add d-n column of zeros to gxiq to get full SVD, needed to get Tq = last d-n columns of U
-         svd( Agxiq, U, s, Vtr);        // Computing the singular values and vectors of gxiq
-         // multiply singular values to get detq = sqrt( det(gxiq^t gxiq) ) = det(S) (for RATTLE move later)
-         detq = 1.;
-         for ( unsigned long int i = 0; i < m; i++){
-            detq *= s[i];    // detq = sqrt( det(gxiq^t gxiq) ) = det(S)
-         }
-         
-         Agxiqn = M.Agxi(gxiqn);          // add d-n column of zeros to gxiq to get full SVD, needed to get Tqn = last d-n columns of U
-         svd( Agxiqn, U, s, Vtr);        // Computing the singular values and vectors of gxiqn
-         // multiply singular values to get detqn = r(qn) = sqrt( det(gxiy^t gxiy) ) = det(S)
-         detqn = 1.;
-         for ( unsigned long int i = 0; i < m; i++){
-            detqn *= s[i];    // detqn = sqrt( det(gxiy^t gxiy) ) = det(S)
-         }
-         
-         p_sqn  = sqrNorm( p );   // |p|^2  for M-H ratio
-         pn_sqn = sqrNorm( pn );  // |pn|^2 for M-H ratio
-         
-         // NOTE: Here can add V(q) and V(qn) to M-H ratio, for now assume V=0
-         
-         A  = exp( .5*( p_sqn - pn_sqn ) ); //  part of the Metropolis ratio
-         A *= ( detq / detqn );    // since r(q)/r(qn) = detq/detqn
-         
-         if ( SU(RG) > A ){      // Accept with probability A,
-            stats->HardRejectionMetropolis++;
-         }
-         else{
-            rtFlag = Met_acc_rt;                       // accepted
-         }    // Metropolis rejection step done
-      } // end of overall Metropolis check
-      
-      if ( rtFlag ==  Met_acc_rt) {     //  process an accepted proposal
-         q   = qn;
-         p   = pn;
-         gxiq = gxiqn;     // update gradient
-         stats-> HardSampleAccepted++;
-      }
-      else {         // process a rejected proposal
-         
-         p = - p;   // very important: apply ** MOMENTUM REVERSAL ** in the rejection step !!
-         
-      }
-      
-      if ( Nsoft == 0 ){  // ONLY FOR DEBUGGING : store the sample when number of Soft moves = 0
-         for ( int k = 0; k < d; k++){
-            chain[ k + d * iter] = q[k];
-         }
-      } // end of DEBUGGING secton
       
    } // end of MCMC loop
    

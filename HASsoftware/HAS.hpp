@@ -41,8 +41,8 @@ void HASampler(   vector<double>& chain,         /* Samples output from the MCMC
                   size_t T,                       /* number of MCMC steps        */
                   double eps,                     /* squish parameter            */
                   double dt,                      /* time step size in RATTLE integrator                                    */
-                  double Nsoft,                   /* number of Soft Moves: Gaussian Metropolis move to resample position q  */
-                  double Nrattle,                 /* number of Rattle steps      */
+                  int Nsoft,                   /* number of Soft Moves: Gaussian Metropolis move to resample position q  */
+                  int Nrattle,                 /* number of Rattle steps      */
                   DynamicVector<double>& q0,      /* starting position           */
                   DynamicVector<double>& p0,      /* starting momentum           */
                   Model M,                        /* evaluate q(x) and grad q(x) */
