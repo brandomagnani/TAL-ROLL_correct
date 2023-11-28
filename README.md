@@ -1,3 +1,3 @@
-# Hamiltonian Sampler for Highly Oscillatory Systems with momentum projection before resampling
+# Hamiltonian Sampler for Highly Oscillatory Systems with (old) momentum projection in the resampling step
 
 
