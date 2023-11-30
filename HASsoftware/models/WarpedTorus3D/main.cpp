@@ -69,21 +69,10 @@ int main(int argc, char** argv){
    
    DynamicVector<double, columnVector> q( d); // starting Position for sampler
    DynamicVector<double, columnVector> p( d); // starting Momentum for sampler, on T_q
-   
-   //q[0] = 1.20105824111462;                   // give value to starting point, on 3D Simple Torus model constraint ..
-   //q[1] = -0.669497937230318;                 // // .. r1 = sqrt(2), r2 = sqrt(2)
-   //q[2] = 0.669497937230317;
-   
-   //q[0] = 0.3780902941558512;                 // give value to starting point, on 3D Warped Torus model constraint ..
-   //q[1] = -0.7586573478136572;                // .. r = sqrt(2), sx = sqrt(2), sy = sqrt(3), sz = sqrt(5)
-   //q[2] = 2.132027719657734;
-   
-   //q[0] =  0.7780902941558512;                 // give value to starting point, OFF the 3D Warped Torus model constraint ..
-   //q[1] = -0.7586573478136572;
-   //q[2] =  2.132027719657734;
+
    
    
-// Starting point on Cotangent Bundle T S_z :
+// Starting point on Cotangent Bundle T S_0 :
    
    q[0] =  1.15826364700193;                 // ON 3D Warped torus level S_0
    q[1] = -0.0170130472486141;
@@ -115,14 +104,16 @@ int main(int argc, char** argv){
    int Nsoft = 1;          // number of Soft moves for MCMC step
    int Nrattle = 3;        // number of RATTLE integrator time steps for each MCMC step
    
-   double kq  = 0.7;       // factor for Soft Position proposal std
-   double sq  = kq*eps;    // std for Soft Position proposal
-   double kp  = 0.01;       // factor for Soft Momentum proposal std
-   double sp  = kp*eps;       // std for Soft Momentum proposal
+   double kq  = 0.7;       // factor for Soft Position proposal standard dev.
+   double sq  = kq*eps;    // standard dev. for Soft Position proposal
    
-   double dt  = 0.6;       // time step size in RATTLE integrator
+   double kp  = 1.0;       // factor for Soft Momentum proposal standard dev.
+   double sp  = kp*eps;     // standard dev. for Soft Momentum proposal
+   
+   double dt  = 0.5;        // time step size in RATTLE integrator
    
 // -------------------------------------------------------------------------------------------------------------------------------
+   
    
    size_t size_factor = Nsoft + Nrattle;  // multiplies T below
    size_t T_chain = size_factor * T;      // length of chain, needs to contain all samples
@@ -136,11 +127,17 @@ int main(int argc, char** argv){
    HASampler(chain, &stats, T, eps, dt, Nsoft, Nrattle, q, p, M, sq, sp, neps, rrc, itm, RG);
    auto end = chrono::steady_clock::now();
    
+   int Ts;
+   if ( Nsoft > 0 ){
+      Ts = stats.SoftSample;    // number of Soft samples
+   } else {
+      Ts = stats.HardSample;
+   }
    
-   double Ts = stats.SoftSample;    // number of Soft samples
-   double Tr = stats.HardSample;    // number of Rattle samples
+   int Tr = stats.HardSample;    // number of Rattle samples
    double As = 0.;                  // Pr of Acceptance of Soft sample
    double Ar = 0.;                  // Pr of Acceptance of Rattle sample
+   
    
    if (stats.SoftSample > 0) {  // Set Pr of Acceptance of Soft sample
       As    = (double) stats.SoftSampleAccepted / (double) stats.SoftSample;
@@ -149,8 +146,6 @@ int main(int argc, char** argv){
       Ar    = (double) stats.HardSampleAccepted / (double) stats.HardSample;
    }
 
-   
-   
 
    cout << " beta = " << beta << endl;
    cout << " eps = " << eps << endl;

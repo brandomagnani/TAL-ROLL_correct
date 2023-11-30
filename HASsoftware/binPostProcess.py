@@ -53,7 +53,7 @@ print("---------------------------------------------------")
 
 np1 = 5*int(tau)
 
-#-------------------------------Plot of Autocovaroiance-------------------------
+#-------------------------------Plot of Autocovariance-------------------------
 if (chain_test==True):
    fig, ax = plt.subplots()
    ax.plot(range(np1), ac[0:np1], 'bo', label = 'auto-covariance')

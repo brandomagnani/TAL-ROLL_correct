@@ -70,32 +70,19 @@ int main(int argc, char** argv){
    DynamicVector<double, columnVector> q( d); // starting Position for sampler
    DynamicVector<double, columnVector> p( d); // starting Momentum for sampler, on T_q
    
-   //q[0] = 1.20105824111462;                   // give value to starting point, on 3D Simple Torus model constraint ..
-   //q[1] = -0.669497937230318;                 // // .. r1 = sqrt(2), r2 = sqrt(2)
-   //q[2] = 0.669497937230317;
    
-   //q[0] = 0.3780902941558512;                 // give value to starting point, on 3D Warped Torus model constraint ..
-   //q[1] = -0.7586573478136572;                // .. r = sqrt(2), sx = sqrt(2), sy = sqrt(3), sz = sqrt(5)
-   //q[2] = 2.132027719657734;
-   
-   //q[0] =  0.7780902941558512;                 // give value to starting point, OFF the 3D Warped Torus model constraint ..
-   //q[1] = -0.7586573478136572;
-   //q[2] =  2.132027719657734;
-   
-   
-// Starting point on Cotangent Bundle T S_z :
-   
-   q[0] =  1.15826364700193;                 // ON 3D Warped torus level S_0
-   q[1] = -0.0170130472486141;
-   q[2] =  0.18874425718081;
+// Starting point on Cotangent Bundle T S_0 :
 
-   p[0] = -0.061452943055924;
-   p[1] = 0.119011589305959;
-   p[2] = -0.0902347507341671;
+   q[0] = 1.20105824111462;                   // give value to starting point, on 3D Simple Torus model constraint S_0 ..
+   q[1] = -0.669497937230318;                 // // .. r1 = sqrt(2), r2 = sqrt(2)
+   q[2] = 0.669497937230317;
+
+   p[0] = 0.0674610691512285;
+   p[1] = 0.239013743714144;
+   p[2] = -0.239013743714144;
    
 
-
-   size_t T      = 20000000;     // number of MCMC steps
+   size_t T      = 2000000;     // number of MCMC steps
    double neps   = 1.e-10;       // convergence tolerance for Newton projection
    double rrc    = 1.e-8;        // closeness criterion for the reverse check
    int itm       = 6;            // maximum number of Newtons iterations
@@ -115,9 +102,9 @@ int main(int argc, char** argv){
    int Nsoft = 1;          // number of Soft moves for MCMC step
    int Nrattle = 3;        // number of RATTLE integrator time steps for each MCMC step
    
-   double kq  = 0.7;       // factor for Soft Position proposal std
+   double kq  = 0.5;       // factor for Soft Position proposal std
    double sq  = kq*eps;    // std for Soft Position proposal
-   double kp  = 0.01;       // factor for Soft Momentum proposal std
+   double kp  = 1.0;       // factor for Soft Momentum proposal std
    double sp  = kp*eps;       // std for Soft Momentum proposal
    
    double dt  = 0.6;       // time step size in RATTLE integrator
@@ -321,7 +308,11 @@ int main(int argc, char** argv){
    ostream1.write((char*)&chain[0], sample_size * sizeof(double));
    ostream1.close();
 
-
+// Write thetas in binary format (in a file called "thetas.bin"). Contains angle theta of each sample
+   size_t theta_size = Ts;
+   ofstream ostream2("thetas.bin", ios::out | ios::binary);
+   ostream2.write((char*)&thetas[0], theta_size * sizeof(double));
+   ostream2.close();
    
 }  // end of main
 

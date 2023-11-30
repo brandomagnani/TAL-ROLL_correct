@@ -148,7 +148,7 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
       
       //cout << "------" << endl;
       //cout << q << endl;
-      //cout << norm( p ) << endl;
+      //cout << p << endl;
       
       //----------------------------------------------Position-Momentum resampling Metropolis-Hastings---------------------------------------------
       
