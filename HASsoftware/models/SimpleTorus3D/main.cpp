@@ -107,6 +107,9 @@ int main(int argc, char** argv){
    double kp  = 1.0;       // factor for Soft Momentum proposal std
    double sp  = kp*eps;       // std for Soft Momentum proposal
    
+   double kg    = 1.0;     // factor for gamma below
+   double gamma = 1.0;     // friction coefficient for thermostat part in Langevin dynamics
+   
    double dt  = 0.6;       // time step size in RATTLE integrator
    
 // -------------------------------------------------------------------------------------------------------------------------------
@@ -120,7 +123,7 @@ int main(int argc, char** argv){
    
    
    auto start = chrono::steady_clock::now();
-   HASampler(chain, &stats, T, eps, dt, Nsoft, Nrattle, q, p, M, sq, sp, neps, rrc, itm, RG);
+   HASampler(chain, &stats, T, eps, dt, gamma, Nsoft, Nrattle, q, p, M, sq, sp, neps, rrc, itm, RG);
    auto end = chrono::steady_clock::now();
    
    

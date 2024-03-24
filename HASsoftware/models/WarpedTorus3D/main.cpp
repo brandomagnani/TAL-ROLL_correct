@@ -84,7 +84,7 @@ int main(int argc, char** argv){
    
 
 
-   size_t T      = 20000000;     // number of MCMC steps
+   size_t T      = 2e6;          // number of MCMC steps
    double neps   = 1.e-10;       // convergence tolerance for Newton projection
    double rrc    = 1.e-8;        // closeness criterion for the reverse check
    int itm       = 6;            // maximum number of Newtons iterations
@@ -108,9 +108,12 @@ int main(int argc, char** argv){
    double sq  = kq*eps;    // standard dev. for Soft Position proposal
    
    double kp  = 1.0;       // factor for Soft Momentum proposal standard dev.
-   double sp  = kp*eps;     // standard dev. for Soft Momentum proposal
+   double sp  = kp*eps;    // standard dev. for Soft Momentum proposal
    
-   double dt  = 0.5;        // time step size in RATTLE integrator
+   double kg    = 1.0;     // factor for gamma below
+   double gamma = 1.0;     // friction coefficient for thermostat part in Langevin dynamics
+   
+   double dt  = 0.5;       // time step size in RATTLE integrator
    
 // -------------------------------------------------------------------------------------------------------------------------------
    
@@ -124,7 +127,7 @@ int main(int argc, char** argv){
    
    
    auto start = chrono::steady_clock::now();
-   HASampler(chain, &stats, T, eps, dt, Nsoft, Nrattle, q, p, M, sq, sp, neps, rrc, itm, RG);
+   HASampler(chain, &stats, T, eps, dt, gamma, Nsoft, Nrattle, q, p, M, sq, sp, neps, rrc, itm, RG);
    auto end = chrono::steady_clock::now();
    
    int Ts;

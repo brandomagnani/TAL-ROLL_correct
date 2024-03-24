@@ -21,8 +21,9 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
                      size_t T,                       /* number of MCMC steps        */
                      double eps,                     /* squish parameter            */
                      double dt,                      /* time step size in RATTLE integrator                                    */
-                     int Nsoft,                   /* number of Soft Moves: Gaussian Metropolis move to resample position q  */
-                     int Nrattle,                 /* number of Rattle steps         */
+                     double gamma,                   /* friction coefficient for thermostat part in Langevin dynamics          */
+                     int Nsoft,                      /* number of Soft Moves: Gaussian Metropolis move to resample position q  */
+                     int Nrattle,                    /* number of Rattle steps         */
                      DynamicVector<double>& q0,      /* starting position              */
                      DynamicVector<double>& p0,      /* starting momentum              */
                      Model M,                        /* evaluate q(x) and grad q(x)    */
@@ -81,6 +82,10 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
    DynamicMatrix<double, columnMajor>  U;          // U contains left singular vectors, size (d x d)
    DynamicVector<double, columnVector> s;          // vector contains m singular values, size m
    DynamicMatrix<double, columnMajor>  Vtr;        // V^t where V contains right singular vectors, size (m x m)
+   
+   double c1;   // coefficient 1 in thermostat momentum step
+   double c2;   // coefficient 2 in thermostat momentum step
+   double c3;   // coefficient 3 in thermostat momentum step
    
    double Uq;      // |xi(q)|^2
    double Uqn;     // |xi(qn)|^2
@@ -229,6 +234,24 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
          }
          
       } // end of Soft Metropolis move
+      
+      //------------------------------------------------------------Thermostat half step-------------------------------------------------------------
+      
+      for (unsigned int k = 0; k < d; k++){  // Sample Isotropic Standard Gaussian
+         Z[k] = SN(RG);
+      }
+      
+      gtygy = trans( gxiq ) * gxiq;          // compute matrix for momentum step projection: gxi(q)^t gxi(q)
+      c1    = 1. - ( gamma * dt * 0.25 );
+      c2    = sqrt( gamma * dt );
+      r     = - trans( gxiq ) * ( c1 * p + c2 * Z );   // right hand side of linear system for projection
+      solve( gtygy, da, r);                            // solve linear system for projection onto Tq
+      
+      c3 = 1. / ( 1. + ( gamma * dt * 0.25 ) );
+      pn = c3 * ( c1 * p + c2 * Z + gxiq * da);        // thermostat momentum step
+      
+      p = pn;    // update momentum
+      
       
       //---------------------------------------------------------------RATTLE steps------------------------------------------------------------------
       
@@ -429,16 +452,35 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
             p = - p;   // very important: apply ** MOMENTUM REVERSAL ** in the rejection step !!
             
          }
-         
-         if ( Nsoft == 0 ){  // ONLY FOR DEBUGGING : store the sample when number of Soft moves = 0
-            Nsample++;
-            for ( int k = 0; k < d; k++){
-               chain[ k + d * Nsample] = q[k];
-            }
-         } // end of DEBUGGING secton
-         
       }  // end of RATTLE move
       
+      //------------------------------------------------------------Thermostat half step-------------------------------------------------------------
+      
+      for (unsigned int k = 0; k < d; k++){  // Sample Isotropic Standard Gaussian
+         Z[k] = SN(RG);
+      }
+      
+      gtygy = trans( gxiq ) * gxiq;          // compute matrix for momentum step projection: gxi(q)^t gxi(q)
+      c1    = 1. - ( gamma * dt * 0.25 );
+      c2    = sqrt( gamma * dt );
+      r     = - trans( gxiq ) * ( c1 * p + c2 * Z );   // right hand side of linear system for projection
+      solve( gtygy, da, r);                            // solve linear system for projection onto Tq
+      
+      c3 = 1. / ( 1. + ( gamma * dt * 0.25 ) );
+      pn = c3 * ( c1 * p + c2 * Z + gxiq * da);        // thermostat momentum step
+      
+      p = pn;    // update momentum
+      
+      
+         
+      if ( Nsoft == 0 ){  // ONLY FOR DEBUGGING : store the sample when number of Soft moves = 0
+         Nsample++;
+         for ( int k = 0; k < d; k++){
+            chain[ k + d * Nsample] = q[k];
+         }
+      } // end of DEBUGGING secton
+         
+
       
    } // end of MCMC loop
    
