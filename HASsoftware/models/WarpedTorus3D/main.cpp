@@ -244,6 +244,8 @@ int main(int argc, char** argv){
    OutputFile << OutputString << endl;
    StringLength = snprintf( OutputString, sizeof(OutputString),"sp = %10.5e", sp);
    OutputFile << OutputString << endl;
+   StringLength = snprintf( OutputString, sizeof(OutputString),"gamma = %10.5e",gamma);
+   OutputFile << OutputString << endl;
    StringLength = snprintf( OutputString, sizeof(OutputString),"dt = %10.5e", dt);
    OutputFile << OutputString << endl;
    StringLength = snprintf( OutputString, sizeof(OutputString),"Nsoft = %10d", Nsoft);
