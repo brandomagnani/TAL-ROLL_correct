@@ -52,6 +52,7 @@ void HASampler(   vector<double>& chain,         /* Samples output from the MCMC
                   double neps,                    /* convergence tolerance for Newton projection        */
                   double rrc,                     /* closeness criterion for the reverse check          */
                   int   itm,                      /* maximum number of Newton iterations per projection */
+                  bool  gradRATTLE,               /* if True, use grad V in RALLTE steps; if False, set grad V = 0 in RATTLE steps */
                   mt19937 RG);                    /* random generator engine, already instantiated      */
  
 

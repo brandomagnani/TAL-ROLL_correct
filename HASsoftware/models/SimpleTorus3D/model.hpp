@@ -29,6 +29,13 @@ class Model{
       int d;     // dimension of the ambient space
       int m;     // number of constraint functions
       int n;     // dimension of the hard constraint manifold = d-m
+   
+   
+      double                                          /* evaluates the                  */
+      V( DynamicVector<double, columnVector> q );     /* potential V(q)                 */
+
+      DynamicVector<double, columnVector>              /* return the gradient ...       */
+      gV( DynamicVector<double, columnVector> q );     /* ... of potential: grad V(q)   */
       
       DynamicVector<double, columnVector>            /* return the values ...           */
       xi( DynamicVector<double, columnVector> q);     /* ... of the constraint functions */

@@ -1,15 +1,20 @@
-//   model.cpp
 //
-//   model name: 3D simple torus
-
-//   Adapted from Jonathan Goodman's foliation sampler code
-
-/*   This model has a surface in d dimensions defined by m constraints
-     of the form
+//  Model.cpp
+//
+//  model name: 3D warped torus
+//
+//  Adapted from Jonathan Goodman's foliation sampler code.
+//
+/*   This model defines a warped circle in 3D as the intersection
+     of two surfaces.  One is a round sphere defined by
           
-            | q - c_k | = r_k
-            
-     Geomertically, the surface is the intersection of m spheres
+            | q - c_0 | = r_0
+    
+     The other surface is an ellipsoid, which is a distorted sphere,
+     defined by
+     
+          sum_k ( q_k - c_{1,k} )^2/s_k^2 = 1
+     
 */
 #include <iostream>
 #include <blaze/Math.h>
@@ -23,26 +28,38 @@ Model::Model(){}
 // PARAMETRIZED Constructor, copy given dimensions into instance variables
 Model::Model( int                         d0,    /* dimension of the ambient space */
               int                         m0,    /* number of constraints          */
-       DynamicVector<double>              r0,    /* radii of spheres, distance constraints */
-       DynamicMatrix<double, columnMajor> c0){   /* centers of spheres                     */
+              double                      r00,   /* radus of sphere                              */
+       DynamicVector<double>              s0,    /* dimensional radius numbers for the ellipsoid */
+       DynamicMatrix<double, columnMajor> c0){   /* column 0 = cdnter of round sphere            */
+                                                 /* column 1 = center of ellipsoid               */
+   // building the model object
    d = d0;
    m = m0;
-   r = r0;
+   r = r00;
+   s = s0;
    c = c0;
+   
+   ssq.resize(d); // contains the square of entries of s0, the "radius" parameters of the ellipsoid
+   for ( int i = 0; i < d; i++) {
+      ssq[i] = s0[i]*s0[i];
+   }
 }
 
 // COPY Constructor
 Model::Model(const Model& M0){
-   d = M0.d;
-   m = M0.m;
-   r = M0.r;
-   c = M0.c;
+   d   = M0.d;
+   m   = M0.m;
+   r   = M0.r;
+   s   = M0.s;
+   c   = M0.c;
+   ssq = M0.ssq;
 }
 
-double
+
+double 
 Model::V(DynamicVector<double, columnVector> q) {
    
-   return 0.;
+   return 0.5 * sqrNorm( q );
 }
 
 DynamicVector<double, columnVector>
@@ -51,31 +68,54 @@ Model::gV(DynamicVector<double, columnVector> q){
    DynamicVector<double, columnVector> gV(d);
    
    for ( int j = 0; j < d; j++ ){
-      gV[j] = 0.;
+      gV[j] = q[j];
    }
    return gV;
 }
 
+
+
 DynamicVector<double, columnVector>
 Model::xi(DynamicVector<double, columnVector> q){
+   
    DynamicVector<double, columnVector> disp(d);   // vector from q to c_j (center of sphere j)
    DynamicVector<double, columnVector> xi(m);      // constraint function values
-   for (int j = 0; j < m; j++){
-      
-      disp = q - column(c,j);
-      xi[j] = trans(disp)*disp - r[j]*r[j];
-    }
+   
+   //        The sphere
+     
+   disp = q - column(c,0);
+   xi[0] = trans(disp)*disp - r*r;
+   
+   //       The ellipsoid
+
+   double exi = 0.;              // xi[1] = exi = xi "for the ellipsoid"
+   disp = q - column(c,1);
+   for ( int j =0; j < d; j++){
+      exi += disp[j]*disp[j]/ssq[j];
+   }
+   xi[1] = exi - 1.;
+   
    return xi;
 }
 
 DynamicMatrix<double, columnMajor>
 Model::gxi(DynamicVector<double, columnVector> q){
-   DynamicVector<double, columnVector>disp(d);   // displacement from a center
-   DynamicMatrix<double, columnMajor> gxi(d,m);   // gradient, (dxm) matrix
-   for (int j = 0; j < m; j++){
-      disp = q - column(c,j);
-      column(gxi, j)  = 2.*disp;
-    }
+   
+   DynamicVector<double, columnVector> disp(d);   // displacement from a center
+   DynamicMatrix<double, columnMajor> gxi(d,m);  // gradient, (dxm) matrix
+   
+   //        The sphere, first column
+     
+   disp = q - column(c,0);
+   column(gxi, 0)  = 2.*disp;
+   
+   //       The ellipsoid, second column
+
+   disp = q - column(c,1);
+   for ( int j =0; j < d; j++){
+      gxi(j,1) = 2.0*disp[j]/ssq[j];
+   }
+   
    return gxi;
 }
 
@@ -83,20 +123,23 @@ Model::gxi(DynamicVector<double, columnVector> q){
 // Needed to have a complete QR decomposition of gxi(q), with Q (dxd) matrix
 DynamicMatrix<double, columnMajor>
 Model::Agxi(DynamicMatrix<double, columnMajor> gxi){
+   
    DynamicMatrix<double, columnMajor> Agxi(d,d);   // Augmented gradient, (dxd) matrix
    Agxi = 0.;  // initialize to zero
+   
    for (int j = 0; j < m; j++){
       column(Agxi, j)  = column(gxi, j);
    }
+
    return Agxi;  // last n=d-m columns are zeros
 }
 
 string Model::ModelName(){                  /* Return the name of the model */
    
-   return(" 3D Simple Torus ");
+   return(" 3D Warped Torus with V(q) = |q|^2/2 ");
 }
 
-//  Compute the (un-normalized) probability density for x1 by integrating over
+//  Compute the (un-normalized) probability density for q1 by integrating over
 //  the other two variables.
  
 double Model::yzIntegrate( double x, double L, double R, double eps, int n){
@@ -109,7 +152,8 @@ double Model::yzIntegrate( double x, double L, double R, double eps, int n){
    double sum = 0.;
    
    DynamicVector<double, columnVector> qv( d);    // point in 3D
-   DynamicVector<double, columnVector> xiv( m);    // values of the constraint functions
+   DynamicVector<double, columnVector> xiv( m);   // values of the constraint functions
+   double Vqv( d);                                // values of potential
    
    qv[0] = x;
    for ( int j = 0; j < n; j++){
@@ -119,7 +163,8 @@ double Model::yzIntegrate( double x, double L, double R, double eps, int n){
          z = L + k*dz + .5*dz;
          qv[2] = z;
          xiv = xi(qv);
-         sum += exp( - 0.5*(trans(xiv)*xiv)/(eps*eps) );
+         Vqv = V(qv);
+         sum += exp( - Vqv - 0.5*(trans(xiv)*xiv)/(eps*eps) );
       }
    }
    return dy*dz*sum;

@@ -1,6 +1,6 @@
 # makefile
 
-ModelDir = models/WarpedTorus3D
+ModelDir = models/WarpedTorus3D_V
 
 
 mainExec : main.o model.o HAS.o

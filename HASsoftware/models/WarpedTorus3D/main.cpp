@@ -115,6 +115,8 @@ int main(int argc, char** argv){
    
    double dt  = 0.5;       // time step size in RATTLE integrator
    
+   bool gradRATTLE = true;  // if True, use grad V in RALLTE steps; if False, set grad V = 0 in RATTLE steps
+   
 // -------------------------------------------------------------------------------------------------------------------------------
    
    
@@ -127,7 +129,7 @@ int main(int argc, char** argv){
    
    
    auto start = chrono::steady_clock::now();
-   HASampler(chain, &stats, T, eps, dt, gamma, Nsoft, Nrattle, q, p, M, sq, sp, neps, rrc, itm, RG);
+   HASampler(chain, &stats, T, eps, dt, gamma, Nsoft, Nrattle, q, p, M, sq, sp, neps, rrc, itm, gradRATTLE, RG);
    auto end = chrono::steady_clock::now();
    
    int Ts;
@@ -225,9 +227,37 @@ int main(int argc, char** argv){
             cout << OutputString << endl;
          }
       }
+      
+      // Compute Relative Standard Error:
+      
+      // Define the range for the bins to be included in the computation of rel standard error
+      int startBin = 31;
+      int endBin = 68;
+
+      // 1. Calculate the mean of Ratio for the specified bins
+      double sum = std::accumulate(Ratio.begin() + startBin, Ratio.begin() + endBin + 1, 0.0);
+      double mean = sum / (endBin - startBin + 1);
+
+      // 2. Calculate the standard deviation of Ratio for the specified bins
+      double sq_sum = std::inner_product(Ratio.begin() + startBin, Ratio.begin() + endBin + 1,
+                                         Ratio.begin() + startBin, 0.0);
+      double variance = sq_sum / (endBin - startBin + 1) - mean * mean;
+      double std_dev = std::sqrt(variance);
+
+      // 3. Calculate the Standard Error (SE)
+      double SE = std_dev / std::sqrt(endBin - startBin + 1);
+
+      // 4. Calculate the Relative Standard Error (RSE) and express it as a percentage
+      double RSE = (SE / mean) * 100;
+      
+      cout << " " << endl;
+      cout << " Mean 1/Z (Bins 31 to 68): " << mean << endl;
+      cout << " Standard Error 1/Z (Bins 31 to 68): " << SE << endl;
+      cout << " Relative Standard Error 1/Z (Bins 31 to 68): " << RSE << "%" << endl;
       cout << " " << endl;
       cout << " Number of outliers : " << outliers << endl;
       cout << " " << endl;
+      
    }
    
 

@@ -27,11 +27,12 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
                      DynamicVector<double>& q0,      /* starting position              */
                      DynamicVector<double>& p0,      /* starting momentum              */
                      Model M,                        /* evaluate q(x) and grad q(x)    */
-                     double sq,                      /* isotropic gaussian standard dev. for Position Soft move     */
-                     double sp,                      /* isotropic gaussian standard dev. for Momentum Soft move     */
-                     double neps,                    /* convergence tolerance for Newton projection                 */
-                     double rrc,                     /* closeness criterion for the reverse check                   */
-                     int   itm,                      /* maximum number of Newton iterations per projection          */
+                     double sq,                      /* isotropic gaussian standard dev. for Position Soft move         */
+                     double sp,                      /* isotropic gaussian standard dev. for Momentum Soft move         */
+                     double neps,                    /* convergence tolerance for Newton projection                     */
+                     double rrc,                     /* closeness criterion for the reverse check                       */
+                     int   itm,                      /* maximum number of Newton iterations per projection              */
+                     bool  gradRATTLE,               /* if True, use grad V in RALLTE steps; if False, set grad V = 0 in RATTLE steps */
                mt19937 RG) {                   /* random generator engine, already instantiated      */
    
    DynamicVector<double, columnVector> xiDummy = M.xi(q0);// qStart is used only to learn m
@@ -59,20 +60,26 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
    
    DynamicVector<double, columnVector> a(m);       // coefficient in Newton's iteration
    DynamicVector<double, columnVector> da(m);      // increment of a in Newton's iteration
+   DynamicVector<double, columnVector> gVqr(d);    // gradient of V at qr; used for RATTLE integrator
    DynamicMatrix<double, columnMajor> gxiqr(d,m);  // gradient matrix of constraint functions at qr; used for RATTLE integrator
    
    DynamicVector<double, columnVector> q1(d);      // intermediate position storage for RATTLE steps
    DynamicVector<double, columnVector> p1(d);      // intermediate momentum storage for RATTLE steps
    DynamicVector<double, columnVector> q2(d);      // intermediate position storage for RATTLE steps
    DynamicVector<double, columnVector> p2(d);      // intermediate momentum storage for RATTLE steps
+   DynamicVector<double, columnVector> gVq1(d);    // gradient of V at q1
+   DynamicVector<double, columnVector> gVq2(d);    // gradient of V at q2
    DynamicMatrix<double, columnMajor> gxiq1(d,m);  // gradient matrix of constraint functions at q1
    DynamicMatrix<double, columnMajor> gxiq2(d,m);  // gradient matrix of constraint functions at q2
    
-   
+   double Vq;                                      // potential evaluation: V(q)
+   double Vqn;                                     // potential evaluation: V(qn)
+   DynamicVector<double, columnVector> gVq(d);    // gradient of potential evaluation: grad V(q)
+   DynamicVector<double, columnVector> gVqn(d);    // gradient of potential evaluation: grad V(qn)
    DynamicVector<double, columnVector> xiq(m);     // constraint function values at q
    DynamicVector<double, columnVector> xiqn(m);    // constraint function values at qn
    DynamicMatrix<double, columnMajor> gxiq(d,m);   // gradient matrix of constraint functions
-   DynamicMatrix<double, columnMajor> gxiqn(d,m);   // gradient matrix of constraint functions
+   DynamicMatrix<double, columnMajor> gxiqn(d,m);  // gradient matrix of constraint functions
    DynamicMatrix<double, columnMajor> Tq(d,n);     // for basis of tangent space
    DynamicMatrix<double, columnMajor> Tqn(d,n);    // for basis of tangent space
    
@@ -135,12 +142,24 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
    
 //    Setup for the MCMC iteration: get values at the starting point
    
+   // Initialize V gradients to 0 (in case gradRATTLE == false):
+   
+   gVq  = 0.;
+   gVqn = 0.;
+   gVq1 = 0.;
+   gVq2 = 0.;
+   gVqr = 0.;
+   
    // Update these at the end of each move if proposal is accepted:
    
-   q   = q0;       // starting position
-   p   = p0;       // must be on T_q0
-   xiq  = M.xi(q);       // constraint function evaluated at starting point
-   gxiq = M.gxi(q);      // gradient of constraint function at starting point
+   q   = q0;         // starting position
+   p   = p0;         // must be on T_q0
+   Vq  = M.V(q);     // potential evaluated at starting point
+   if (gradRATTLE){  // if true ..
+      gVq = M.gV(q);   // .. evaluate gradient of potential evaluated at starting point (used in RATTLE steps only)
+   }
+   xiq  = M.xi(q);   // constraint function evaluated at starting point
+   gxiq = M.gxi(q);  // gradient of constraint function at starting point
    
    int Nsample = -1; // we will increment this varialble each time a new sample is stored in chain[]
    int nsteps = 0;   // will be used to count how many RATTLE forward time-steps are taken before a failed projection
@@ -165,7 +184,7 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
          for (unsigned int k = 0; k < d; k++){  // Sample Isotropic Standard Gaussian
             Z[k] = SN(RG);
          }
-         qn = q + sq*Z;      // Position proposal: Isotropic gaussian with mean zero and covariance sm^2*Id
+         qn   = q + sq*Z;      // Position proposal: Isotropic gaussian with mean zero and covariance sm^2*Id
          
          // Draw proposal pn = p + v + gxi(q)da in Tqn, where v isotropic gaussian ( std = sp ) in ambient space
          for ( unsigned int k = 0; k < n; k++){   // Isotropic Gaussian, not tangent
@@ -200,15 +219,19 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
          
          // Do the metropolis detail balance check
          
-         Uq      = sqrNorm( xiq );      // |xi(q)|^2
-         xiqn    = M.xi(qn);             // evaluate xi(qn) (also used when processing accepted proposal)
-         Uqn     = sqrNorm( xiqn );      // |xi(qn)|^2
-         v_sqn    = sqrNorm( v );        // |v|^2
-         vr_sqn   = sqrNorm( vr );       // |vrev|^2
-         p_sqn    = sqrNorm( p );        // |p|^2
-         pn_sqn   = sqrNorm( pn );       // |pn|^2
+         Uq      = sqrNorm( xiq );          // |xi(q)|^2
+         Vqn     = M.V(qn);                 // V(qn)
+         if (gradRATTLE){
+            gVqn = M.gV(qn);   // grad V(qn)
+         }
+         xiqn    = M.xi(qn);                // evaluate xi(qn) (also used when processing accepted proposal)
+         Uqn     = sqrNorm( xiqn );         // |xi(qn)|^2
+         v_sqn   = sqrNorm( v );            // |v|^2
+         vr_sqn  = sqrNorm( vr );           // |vrev|^2
+         p_sqn   = sqrNorm( p );            // |p|^2
+         pn_sqn  = sqrNorm( pn );           // |pn|^2
          
-         A = exp( 0.5*( ((Uq - Uqn) / (eps*eps) ) + ((v_sqn - vr_sqn) / (sp*sp)) + (p_sqn - pn_sqn) ) );  // Metropolis ratio
+         A = exp( (Vq - Vqn) + 0.5*( ((Uq - Uqn) / (eps*eps)) + ((v_sqn - vr_sqn) / (sp*sp)) + (p_sqn - pn_sqn) ) );  // Metropolis ratio
          
          if ( SU(RG) > A ){      // Accept with probability A,
             softFlag = Met_rej_soft;    // rejected
@@ -222,8 +245,10 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
             stats-> SoftSampleAccepted++;
             q   = qn;
             p   = pn;
-            gxiq = gxiqn;     // update gradient
-            xiq  = xiqn;          // update constraint function
+            Vq  = Vqn;     // update potential evaluation
+            gVq = gVqn;    // update gradient
+            gxiq = gxiqn;  // update gradient
+            xiq  = xiqn;   // update constraint function
          }
          else {                                       // process a rejected proposal
          }
@@ -261,8 +286,9 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
          
          z     = xiq;        // need the level z = S_xi(q1), actually have xiq from isotropic Metropolis above, can re-use that !!
          q1     = q;         // initial position for RATTLE iteration
-         p1     = p;         // initial momentum for RATTLE iteration
+         gVq1   = gVq;
          gxiq1  = gxiq;
+         p1     = p;         // initial momentum for RATTLE iteration:
          
          nsteps = 0;            // reset nsteps
          
@@ -273,10 +299,11 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
             rtFlag = starting_proj_q2;  // start q2 projection
             
             //    First, project q1 + dt*p1 onto the constraint surface S_z
-            //    Newton loop to find q2 = q1 + dt*p1 + grad(xi)(q1)*a with xi(q2)=xi(q1)=z
-            a = 0;                     // starting coefficient
-            q2    = q1 + dt * p1;       // initial guess = move in the tangent direction
-            gxiq2 = M.gxi(q2);          // because these are calculated at the end of this loop
+            //    Newton loop to find q2 = q + dt * p1 + dt * grad(xi)(q1)*a, with xi(q2)=xi(q)=z
+            a = 0;       // starting coefficient
+            p1    = p1 - 0.5 * dt * gVq1;
+            q2    = q1 + dt * p1;    // initial guess = move in the tangent direction
+            gxiq2 = M.gxi(q2);       // because these are calculated at the end of this loop
             for ( int ni = 0; ni < itm; ni++){
                r     = z - M.xi(q2);              // equation residual
                gtq2gq1 = trans( gxiq2 )*gxiq1;    // Newton Jacobian matrix
@@ -296,31 +323,37 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
                break;  //  ... we break the forward RATTLE loop and reject the proposal and
             }
             
-            //  ... otherwise continue and project momentum p2 = p1 + grad(xi)(q1)*a onto T_q2
-            p2    = p1 + gxiq1*a;
+            //  ... otherwise continue and project momentum p2 = p1 + grad(xi)(q1)*a - 0.5 * dt * gVq2    onto T_q2
+            p1    += gxiq1*a;                  // update p1 with 2nd lagrange multiplier computed from position projection
+            if (gradRATTLE){
+               gVq2  = M.gV(q2);               // compute grad V(q2)
+            }
+            p2    = p1 - 0.5 * dt * gVq2;      // add    - 0.5 * dt * gVq2    term to get p2 to be projected
             gtygy = trans( gxiq2 )*gxiq2;
             r     = - trans( gxiq2 )*p2;
-            solve( gtygy, a, r);
+            solve( gtygy, a, r);         // carry out projection
             
             // Set the new state to be the one produced by RATTLE iteration above
-            p2    = p2 + gxiq2*a;
+            p2    = p2 + gxiq2*a;   // update p2 with 2nd lagrange multiplier computed from p2 projection
             // q2 already set at the end of Newton iteration
             // end of RATTLE integrator single step
             
             // re-initialize for next iteration
             q1 = q2;
             p1 = p2;
+            gVq1 = gVq2;
             gxiq1 = gxiq2;
             
             if ( nsteps == Nrattle ){  // If we had Nrattle successfull forward RATTLE projection ...
                rtFlag = RATTLE_sequence_worked;
                qn = q2;   // ... save the proposal for Metropolis check below
                pn = p2;
+               gVqn = gVq2;
                gxiqn = gxiq2;
             }
          } // end of forward RATTLE loop
          
-         if ( rtFlag == RATTLE_sequence_worked ){  // if forward RATTLE steps were all successful --> do the REVERSE CHECK !! :
+         if ( rtFlag == RATTLE_sequence_worked ){  // if forward RATTLE steps were all successful --> do the REVERSE CHECK !!!! :
             
             nsteps = 0;            // reset nsteps
             
@@ -332,8 +365,9 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
                
                rtFlag = starting_proj_qr;    // start qr projection
                //    Project q2 + dt*p2 onto the constraint surface S_z, check if the result is = q
-               //    Newton loop to find qr = q2 + dt*p2 + grad(xi)(q2)*a with xi(qr) = xi(q2)= xi(q1) = z
+               //    Newton loop to find qr = q2 + dt*p2 + dt*grad(xi)(q2)*a with xi(qr) = xi(q2)= xi(q1) = z
                a = 0;                     // starting coefficient
+               p2    = p2 - 0.5 * dt * gVq2;
                qr    = q2 + dt * p2;       // initial guess = move in the tangent direction
                gxiqr = M.gxi(qr);           // because these are calculated at the end of this loop
                for ( int ni = 0; ni < itm; ni++){
@@ -356,7 +390,11 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
                }
                
                //  ... otherwise continue and project momentum pr = Proj ( p2 + grad(xi)(q2)*a )  onto T_qr
-               pr    = p2 + gxiq2*a;
+               p2    += gxiq2*a;
+               if (gradRATTLE){
+                  gVqr  = M.gV(qr);
+               }
+               pr    = p2 - 0.5 * dt * gVqr;
                gtygy = trans( gxiqr )*gxiqr;
                r     = - trans( gxiqr )*pr;
                solve( gtygy, a, r);
@@ -368,6 +406,7 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
                // re-initialize for next iteration
                q2 = qr;
                p2 = pr;
+               gVq2  = gVqr;
                gxiq2 = gxiqr;
                
                if ( nsteps == Nrattle ){  // If we had Nrattle successfull reverse RATTLE projection --> go on with reverse check
@@ -425,12 +464,13 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
                detqn *= s[i];    // detqn = sqrt( det(gxiy^t gxiy) ) = det(S)
             }
             
+            Vqn    = M.V(qn);        // V(qn)   (not yet evaluated, since it was not necessary in RATTLE steps)
             p_sqn  = sqrNorm( p );   // |p|^2  for M-H ratio
             pn_sqn = sqrNorm( pn );  // |pn|^2 for M-H ratio
             
             // NOTE: Here can add V(q) and V(qn) to M-H ratio, for now assume V=0
             
-            A  = exp( .5*( p_sqn - pn_sqn ) ); //  part of the Metropolis ratio
+            A  = exp( Vq - Vqn + .5*( p_sqn - pn_sqn ) ); //  part of the Metropolis ratio
             A *= ( detq / detqn );    // since r(q)/r(qn) = detq/detqn
             
             if ( SU(RG) > A ){      // Accept with probability A,
@@ -444,7 +484,9 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
          if ( rtFlag ==  Met_acc_rt) {     //  process an accepted proposal
             q   = qn;
             p   = pn;
-            gxiq = gxiqn;     // update gradient
+            Vq  = Vqn;        // update potential (evaluated in the Metropolis check)
+            gVq = gVqn;       // update gradient (was already evaluated in RATTLE steps)
+            gxiq = gxiqn;     // update gradient (xiq stays the same)
             stats-> HardSampleAccepted++;
          }
          else {         // process a rejected proposal
@@ -461,12 +503,9 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
       }
       
       gtygy = trans( gxiq ) * gxiq;          // compute matrix for momentum step projection: gxi(q)^t gxi(q)
-      c1    = 1. - ( gamma * dt * 0.25 );
-      c2    = sqrt( gamma * dt );
       r     = - trans( gxiq ) * ( c1 * p + c2 * Z );   // right hand side of linear system for projection
       solve( gtygy, da, r);                            // solve linear system for projection onto Tq
       
-      c3 = 1. / ( 1. + ( gamma * dt * 0.25 ) );
       pn = c3 * ( c1 * p + c2 * Z + gxiq * da);        // thermostat momentum step
       
       p = pn;    // update momentum

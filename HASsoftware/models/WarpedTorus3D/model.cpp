@@ -55,6 +55,26 @@ Model::Model(const Model& M0){
    ssq = M0.ssq;
 }
 
+
+double 
+Model::V(DynamicVector<double, columnVector> q) {
+   
+   return 0.;
+}
+
+DynamicVector<double, columnVector>
+Model::gV(DynamicVector<double, columnVector> q){
+   
+   DynamicVector<double, columnVector> gV(d);
+   
+   for ( int j = 0; j < d; j++ ){
+      gV[j] = 0.;
+   }
+   return gV;
+}
+
+
+
 DynamicVector<double, columnVector>
 Model::xi(DynamicVector<double, columnVector> q){
    
@@ -81,7 +101,7 @@ Model::xi(DynamicVector<double, columnVector> q){
 DynamicMatrix<double, columnMajor>
 Model::gxi(DynamicVector<double, columnVector> q){
    
-   DynamicVector<double, columnVector>disp(d);   // displacement from a center
+   DynamicVector<double, columnVector> disp(d);   // displacement from a center
    DynamicMatrix<double, columnMajor> gxi(d,m);  // gradient, (dxm) matrix
    
    //        The sphere, first column
@@ -131,8 +151,8 @@ double Model::yzIntegrate( double x, double L, double R, double eps, int n){
    double y, z;
    double sum = 0.;
    
-   DynamicVector<double, columnVector> qv( 3);    // point in 3D
-   DynamicVector<double, columnVector> xiv( 2);    // values of the constraint functions
+   DynamicVector<double, columnVector> qv( d);    // point in 3D
+   DynamicVector<double, columnVector> xiv( m);    // values of the constraint functions
    
    qv[0] = x;
    for ( int j = 0; j < n; j++){
