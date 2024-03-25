@@ -115,7 +115,8 @@ int main(int argc, char** argv){
    
    double dt  = 0.5;       // time step size in RATTLE integrator
    
-   bool gradRATTLE = true;  // if True, use grad V in RALLTE steps; if False, set grad V = 0 in RATTLE steps
+   bool gradRATTLE   = true;  // if True, use grad V in RALLTE steps; if False, set grad V = 0 in RATTLE steps
+   bool LangevinROLL = true;  // if True, use the Langevin ROLL algorithm; if False, use plain ROLL
    
 // -------------------------------------------------------------------------------------------------------------------------------
    
@@ -129,7 +130,7 @@ int main(int argc, char** argv){
    
    
    auto start = chrono::steady_clock::now();
-   HASampler(chain, &stats, T, eps, dt, gamma, Nsoft, Nrattle, q, p, M, sq, sp, neps, rrc, itm, gradRATTLE, RG);
+   HASampler(chain, &stats, T, eps, dt, gamma, Nsoft, Nrattle, q, p, M, sq, sp, neps, rrc, itm, gradRATTLE, LangevinROLL, RG);
    auto end = chrono::steady_clock::now();
    
    int Ts;

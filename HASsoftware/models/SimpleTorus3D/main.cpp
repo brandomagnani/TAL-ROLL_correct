@@ -82,7 +82,7 @@ int main(int argc, char** argv){
    p[2] = -0.239013743714144;
    
 
-   size_t T      = 2000000;     // number of MCMC steps
+   size_t T      = 2e7;     // number of MCMC steps
    double neps   = 1.e-10;       // convergence tolerance for Newton projection
    double rrc    = 1.e-8;        // closeness criterion for the reverse check
    int itm       = 6;            // maximum number of Newtons iterations
@@ -112,7 +112,8 @@ int main(int argc, char** argv){
    
    double dt  = 0.6;       // time step size in RATTLE integrator
    
-   bool gradRATTLE = true;  // if True, use grad V in RALLTE steps; if False, set grad V = 0 in RATTLE steps
+   bool gradRATTLE   = true;  // if True, use grad V in RALLTE steps; if False, set grad V = 0 in RATTLE steps
+   bool LangevinROLL = false;  // if True, use the Langevin ROLL algorithm; if False, use plain ROLL
    
 // -------------------------------------------------------------------------------------------------------------------------------
    
@@ -125,7 +126,7 @@ int main(int argc, char** argv){
    
    
    auto start = chrono::steady_clock::now();
-   HASampler(chain, &stats, T, eps, dt, gamma, Nsoft, Nrattle, q, p, M, sq, sp, neps, rrc, itm, gradRATTLE, RG);
+   HASampler(chain, &stats, T, eps, dt, gamma, Nsoft, Nrattle, q, p, M, sq, sp, neps, rrc, itm, gradRATTLE, LangevinROLL, RG);
    auto end = chrono::steady_clock::now();
    
    

@@ -85,7 +85,7 @@ int main(int argc, char** argv){
 
 
 
-   size_t T      = 2e6;          // number of MCMC steps
+   size_t T      = 2e7;          // number of MCMC steps
    double neps   = 1.e-10;       // convergence tolerance for Newton projection
    double rrc    = 1.e-8;        // closeness criterion for the reverse check
    int itm       = 6;            // maximum number of Newtons iterations
@@ -103,7 +103,7 @@ int main(int argc, char** argv){
    double eps    = 1.0 / sqrt(2.0*beta);        // squish parameter
    
    int Nsoft = 1;          // number of Soft moves for MCMC step
-   int Nrattle = 3;        // number of RATTLE integrator time steps for each MCMC step
+   int Nrattle = 6;        // number of RATTLE integrator time steps for each MCMC step
    
    double kq  = 0.7;       // factor for Soft Position proposal standard dev.
    double sq  = kq*eps;    // standard dev. for Soft Position proposal
@@ -116,7 +116,8 @@ int main(int argc, char** argv){
    double kg    = 1.0;     // factor for gamma below
    double gamma = 1.0;     // friction coefficient for thermostat part in Langevin dynamics
    
-   bool gradRATTLE = true;  // if True, use grad V in RALLTE steps; if False, set grad V = 0 in RATTLE steps
+   bool gradRATTLE   = true;  // if True, use grad V in RALLTE steps; if False, set grad V = 0 in RATTLE steps
+   bool LangevinROLL = true;  // if True, use the Langevin ROLL algorithm; if False, use plain ROLL
    
 // -------------------------------------------------------------------------------------------------------------------------------
    
@@ -130,7 +131,7 @@ int main(int argc, char** argv){
    
    
    auto start = chrono::steady_clock::now();
-   HASampler(chain, &stats, T, eps, dt, gamma, Nsoft, Nrattle, q, p, M, sq, sp, neps, rrc, itm, gradRATTLE, RG);
+   HASampler(chain, &stats, T, eps, dt, gamma, Nsoft, Nrattle, q, p, M, sq, sp, neps, rrc, itm, gradRATTLE, LangevinROLL, RG);
    auto end = chrono::steady_clock::now();
    
    int Ts;
@@ -229,7 +230,7 @@ int main(int argc, char** argv){
          }
       }
       
-      // Compute Relative Standard Error:
+      // Compute relative standard error for 1/Z:
       
       // Define the range for the bins to be included in the computation
       int startBin = 31;
