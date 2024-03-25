@@ -117,33 +117,25 @@ string Model::ModelName(){                  /* Return the name of the model */
    return(" 2D Double Well with Extended Variable ");
 }
 
-//  Compute the (un-normalized) probability density for q1 by integrating over
-//  the other two variables.
+//  Compute the (un-normalized) probability density for q1 by integrating over q2.
  
 double Model::yzIntegrate( double x, double L, double R, double eps, int n){
 
 //  Use the rectangle rule in the y and z directions with n midpoints in each direction
 
    double dy  = (R-L)/( (double) n);
-   double dz  = dy;
-   double y, z;
+   double y;
    double sum = 0.;
    
    DynamicVector<double, columnVector> qv( d);    // point in 3D
-   DynamicVector<double, columnVector> xiv( m);   // values of the constraint functions
    double Vqv( d);                                // values of potential
    
    qv[0] = x;
    for ( int j = 0; j < n; j++){
       y = L + j*dy + .5*dy;
       qv[1] = y;
-      for ( int k = 0; k < n; k++) {
-         z = L + k*dz + .5*dz;
-         qv[2] = z;
-         xiv = xi(qv);
-         Vqv = V(qv);
-         sum += exp( - Vqv - 0.5*(trans(xiv)*xiv)/(eps*eps) );
-      }
+      Vqv = V(qv);
+      sum += exp( - Vqv );
    }
-   return dy*dz*sum;
+   return dy*sum;
 }

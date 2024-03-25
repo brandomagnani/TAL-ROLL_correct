@@ -56,19 +56,19 @@ int main(int argc, char** argv){
    
 // Starting point on Cotangent Bundle T S_0 :
    
-   q[0] = 1.189;                 // ON 3D plane where x1 = x3 (where x3 = s, the extended variable)
-   q[1] = -3.;
-   q[2] = 1.189;
+   q[0] = 1.1;                 // ON 3D plane where x1 = x3 (where x3 = s, the extended variable)
+   q[1] = -0.7;
+   q[2] = 1.1;
 
-   p[0] = 1.199;
-   p[1] = -3.1;
-   p[2] = 1.199;
+   p[0] = 1.19;
+   p[1] = -0.7;
+   p[2] = 1.19;
    
    
    //cout << exp ( -M.V(q) ) << endl;
 
 
-   size_t T      = 2e6;          // number of MCMC steps
+   size_t T      = 2e7;          // number of MCMC steps
    double neps   = 1.e-10;       // convergence tolerance for Newton projection
    double rrc    = 1.e-8;        // closeness criterion for the reverse check
    int itm       = 6;            // maximum number of Newtons iterations

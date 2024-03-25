@@ -172,7 +172,7 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
    for (unsigned int iter = 0; iter < T; iter++){
       
       //cout << "------" << endl;
-      //cout << q << endl;
+      //cout << q[0] << endl;
       //cout << p << endl;
       //cout << xiq << endl;
       //cout << trans( gxiq ) * p << endl;
