@@ -95,7 +95,7 @@ if (CV_test==True):
    print(" ")
 
    # Plot the estimated and true free energy profiles
-   fig, ax = plt.subplots(figsize=(10, 12))
+   fig, ax = plt.subplots(figsize=(10, 8))
    ax.plot(bin_midpoints, F_hat, label='Estimated Free Energy')
    ax.plot(bin_midpoints, true_F, label='True Free Energy', linestyle='--')
    ax.set_xlabel('CV')
@@ -113,7 +113,7 @@ if (CV_test==True):
    plt.close(fig)  # Close the figure
 
    # Plot the histogram itself
-   fig, ax = plt.subplots(figsize=(10, 12))
+   fig, ax = plt.subplots(figsize=(10, 8))
    ax.bar(bin_midpoints, hist, width=(bin_edges[1] - bin_edges[0]), alpha=0.75, color='blue')
    ax.set_xlabel('CV')
    ax.set_ylabel('Probability Density of CV')
