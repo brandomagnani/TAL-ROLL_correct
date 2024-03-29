@@ -54,8 +54,8 @@ end = time.time()
 
 #-------------------------------CV histogram-----------------------------
 if (CV_test==True):
-   nCVbins = 40
-   beta_s = ChainOutput.beta_s
+   nCVbins = 80
+   beta_s = ChainOutput.beta_s  # Assuming this comes from somewhere
 
    # Compute the histogram of CV values
    hist, bin_edges = np.histogram(CV, bins=nCVbins, density=True)
@@ -66,14 +66,14 @@ if (CV_test==True):
    # Calculate the estimated free energy and normalize so the minimum is at zero
    F_hat = -(1. / beta_s) * np.log(hist)
    F_hat -= np.min(F_hat)
-   
-   # Free Energy parameters
-   D0=5.
-   a=1.
-   kappa=1.
-   lambda_=2.878
 
-   # Define the true free energy profile function (example given, replace as needed)
+   # Free Energy parameters
+   D0 = 5.
+   a = 1.
+   kappa = 1.
+   lambda_ = 2.878
+
+   # Define the true free energy profile function
    def F(x):
        return D0 * (x*x - a*a)**2 - (lambda_**2 * x*x / (2.*kappa))
 
@@ -91,9 +91,9 @@ if (CV_test==True):
 
    # Print the summarized error percentage
    print(" ")
-   print(f" Relative Absolute Error: {error_percentage:.2f}%")
+   print(f"Relative Absolute Error: {error_percentage:.2f}%")
    print(" ")
-      
+
    # Plot the estimated and true free energy profiles
    fig, ax = plt.subplots(figsize=(10, 12))
    ax.plot(bin_midpoints, F_hat, label='Estimated Free Energy')
@@ -101,11 +101,16 @@ if (CV_test==True):
    ax.set_xlabel('CV')
    ax.set_ylabel('Free Energy')
    ax.set_title('Estimated and True Free Energy Profiles')
-   ax.legend(loc='upper center')
 
+   # Add annotation for the number of samples and relative error
+   samples_text = f"Number of Samples: {ChainOutput.Ts}"
+   error_text = f"Relative Error: {error_percentage:.2f}%"
+   ax.text(0.1, 0.99, samples_text, transform=ax.transAxes, verticalalignment='top')
+   ax.text(0.1, 0.97, error_text, transform=ax.transAxes, verticalalignment='top')
+
+   ax.legend(loc='upper right')
    plt.savefig('freeEnergy.pdf')  # Save the figure
-   plt.close(fig)  # Close the figure to free memory
-
+   plt.close(fig)  # Close the figure
 
    # Plot the histogram itself
    fig, ax = plt.subplots(figsize=(10, 12))
@@ -113,9 +118,12 @@ if (CV_test==True):
    ax.set_xlabel('CV')
    ax.set_ylabel('Probability Density of CV')
    ax.set_title('Histogram of CV')
+
+   # Add annotation for the number of samples to the histogram plot
+   ax.text(0.05, 0.98, samples_text, transform=ax.transAxes, verticalalignment='top')
+
    plt.savefig('CVhist.pdf')  # Save the histogram figure
    plt.close(fig)  # Close the figure
-   
 #-------------------------------------------------------------------------------------------
 
 print("---------------------------------------------------")
