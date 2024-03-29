@@ -93,29 +93,36 @@ int main(int argc, char** argv){
    int integrate = 1;                // if = 1, then it does the integration to find marginal density for x[0]
    
    
-// --------------------------------------------KEY PARAMETERS FOR SAMPLER---------------------------------------------------------
+   // --------------------------------------------KEY PARAMETERS FOR SAMPLER---------------------------------------------------------
    
    
    double beta   = 1000.0;                      // squish parameter, beta = 1 / 2*eps^2
    double eps    = 1.0 / sqrt(2.0*beta);        // squish parameter
    
+   double gamma_q = 1.;        // friction coefficient for thermostat part in Langevin dynamics
+   double beta_q  = 1.;        // physical variables inverse temperature
+   
+   double gamma_s = 1.;       // artificial friction coefficient for (extended var) thermostat part in Langevin dynamics
+   double T_s     = 1.;       // artificial temperature for extended variables s, must be large to overcome energy barriers
+   double beta_s  = 1. / T_s;  // artificial inverse temperature
+   
    int Nsoft = 1;          // number of Soft moves for MCMC step
    int Nrattle = 3;        // number of RATTLE integrator time steps for each MCMC step
    
-   double kq  = 0.5;       // factor for Soft Position proposal std
-   double sq  = kq*eps;    // std for Soft Position proposal
-   double kp  = 1.0;       // factor for Soft Momentum proposal std
-   double sp  = kp*eps;       // std for Soft Momentum proposal
+   double kq  = 0.7;       // factor for Soft Position proposal standard dev.
+   double sq  = kq*eps;    // standard dev. for Soft Position proposal
    
-   double kg    = 1.0;     // factor for gamma below
-   double gamma = 1.0;     // friction coefficient for thermostat part in Langevin dynamics
+   double kp  = 1.0;       // factor for Soft Momentum proposal standard dev.
+   double sp  = kp*eps;    // standard dev. for Soft Momentum proposal
    
-   double dt  = 0.6;       // time step size in RATTLE integrator
+   double dt  = 0.5;       // time step size in RATTLE integrator
    
    bool gradRATTLE   = true;  // if True, use grad V in RALLTE steps; if False, set grad V = 0 in RATTLE steps
-   bool LangevinROLL = false;  // if True, use the Langevin ROLL algorithm; if False, use plain ROLL
+   bool LangevinROLL = true;  // if True, use the Langevin ROLL algorithm; if False, use plain ROLL
+   
    
 // -------------------------------------------------------------------------------------------------------------------------------
+   
    
    size_t size_factor = Nsoft + Nrattle;  // multiplies T below
    size_t T_chain = size_factor * T;      // length of chain, needs to contain all samples
@@ -126,7 +133,7 @@ int main(int argc, char** argv){
    
    
    auto start = chrono::steady_clock::now();
-   HASampler(chain, &stats, T, eps, dt, gamma, Nsoft, Nrattle, q, p, M, sq, sp, neps, rrc, itm, gradRATTLE, LangevinROLL, RG);
+   HASampler(chain, &stats, T, eps, dt, gamma_q, gamma_s, beta_q, beta_s, Nsoft, Nrattle, q, p, M, sq, sp, neps, rrc, itm, gradRATTLE, LangevinROLL, RG);
    auto end = chrono::steady_clock::now();
    
    

@@ -12,6 +12,7 @@ import time
 
 chain_test      = True
 thetas_test     = True
+CV_test         = True
 
 start = time.time()
 # read chain from binary file, cast it to vector called X
@@ -33,12 +34,89 @@ except IOError:
    thetas_test = False
    
    
+# read CV from binary file, cast it to vector called CV
+dtype = np.dtype('double')
+try:
+   with open("CV.bin", "rb") as f:
+       CV = np.fromfile(f,dtype)
+       CV = CV[ CV != 0 ]
+except IOError:
+   CV_test = False
+   
+   
    
    
 Ts = ChainOutput.Ts
 d  = ChainOutput.d
 X = np.reshape(X, (Ts,d))
 end = time.time()
+
+
+#-------------------------------CV histogram-----------------------------
+if (CV_test==True):
+   nCVbins = 40
+   beta_s = ChainOutput.beta_s
+
+   # Compute the histogram of CV values
+   hist, bin_edges = np.histogram(CV, bins=nCVbins, density=True)
+
+   # Calculate the midpoints of the bins
+   bin_midpoints = (bin_edges[:-1] + bin_edges[1:]) / 2
+
+   # Calculate the estimated free energy and normalize so the minimum is at zero
+   F_hat = -(1. / beta_s) * np.log(hist)
+   F_hat -= np.min(F_hat)
+   
+   # Free Energy parameters
+   D0=5.
+   a=1.
+   kappa=1.
+   lambda_=2.878
+
+   # Define the true free energy profile function (example given, replace as needed)
+   def F(x):
+       return D0 * (x*x - a*a)**2 - (lambda_**2 * x*x / (2.*kappa))
+
+   # Calculate the true free energy at the bin midpoints and normalize
+   true_F = F(bin_midpoints)
+   true_F -= np.min(true_F)
+
+   # Compute the error between the estimated and true free energy at bin midpoints
+   error = np.abs(true_F - F_hat)
+
+   # Summarize the error into a single percentage number
+   mae = np.mean(error)  # Mean Absolute Error
+   average_true_F = np.mean(true_F)
+   error_percentage = (mae / average_true_F) * 100.
+
+   # Print the summarized error percentage
+   print(" ")
+   print(f" Relative Absolute Error: {error_percentage:.2f}%")
+   print(" ")
+      
+   # Plot the estimated and true free energy profiles
+   fig, ax = plt.subplots(figsize=(10, 12))
+   ax.plot(bin_midpoints, F_hat, label='Estimated Free Energy')
+   ax.plot(bin_midpoints, true_F, label='True Free Energy', linestyle='--')
+   ax.set_xlabel('CV')
+   ax.set_ylabel('Free Energy')
+   ax.set_title('Estimated and True Free Energy Profiles')
+   ax.legend(loc='upper center')
+
+   plt.savefig('freeEnergy.pdf')  # Save the figure
+   plt.close(fig)  # Close the figure to free memory
+
+
+   # Plot the histogram itself
+   fig, ax = plt.subplots(figsize=(10, 12))
+   ax.bar(bin_midpoints, hist, width=(bin_edges[1] - bin_edges[0]), alpha=0.75, color='blue')
+   ax.set_xlabel('CV')
+   ax.set_ylabel('Probability Density of CV')
+   ax.set_title('Histogram of CV')
+   plt.savefig('CVhist.pdf')  # Save the histogram figure
+   plt.close(fig)  # Close the figure
+   
+#-------------------------------------------------------------------------------------------
 
 print("---------------------------------------------------")
 OutputLine = " chain has " + str(Ts) + " rows and " + str(d) + " columns "
@@ -113,6 +191,10 @@ if (thetas_test==True):
 
 with open('output', 'w') as OutputFile:
    OutputFile.write('estimated tau is {0:8.2f}'.format(tau))
+   
+
+
+
 
 
 

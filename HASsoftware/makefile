@@ -4,9 +4,9 @@
 # 1- SimpleTorus3D
 # 2- WarpedTorus3D
 # 3- WarpedTorus3D_V
-# 4- DoubleWell2D_ExtendedVar
+# 4- DoubleWell2D_CV
 
-ModelDir = models/DoubleWell2D_ExtendedVar
+ModelDir = models/DoubleWell2D_CV
 
 mainExec : main.o model.o HAS.o
 	g++ -std=c++14 -lclapack main.o model.o HAS.o -o mainExec
@@ -20,4 +20,5 @@ HAS.o : HAS.cpp HAS.hpp $(ModelDir)/model.hpp
 main.o : $(ModelDir)/main.cpp $(ModelDir)/model.hpp HAS.hpp
 	g++ -std=c++14 -I$(ModelDir) -c $(ModelDir)/main.cpp
 
-
+clean:
+	rm -f *.o mainExec

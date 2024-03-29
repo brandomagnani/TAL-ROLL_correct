@@ -21,8 +21,11 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
                      size_t T,                       /* number of MCMC steps        */
                      double eps,                     /* squish parameter            */
                      double dt,                      /* time step size in RATTLE integrator                                    */
-                     double gamma,                   /* friction coefficient for thermostat part in Langevin dynamics          */
-                     int Nsoft,                      /* number of Soft Moves: Gaussian Metropolis move to resample position q  */
+                     double gamma_q,                 /* friction coefficient for (physical) thermostat part in Langevin dynamics              */
+                     double gamma_s,                 /* artificial friction coefficient for (extended) thermostat part in Langevin dynamics    */
+                     double beta_q,                  /* physical inverse temperature                                             */
+                     double beta_s,                  /* artificial inverse temperature for extended variables "s"                */
+                     int Nsoft,                      /* number of Soft Moves: Gaussian Metropolis move to resample position q    */
                      int Nrattle,                    /* number of Rattle steps         */
                      DynamicVector<double>& q0,      /* starting position              */
                      DynamicVector<double>& p0,      /* starting momentum              */
@@ -43,6 +46,7 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
    
    DynamicVector<double, columnVector> Z(d);       // standard gaussian in ambient space R^d
    DynamicVector<double, columnVector> q(d);       // current position sample
+   DynamicVector<double, columnVector> q_res(d);   // current position sample, rescaled by mass matrix --> used as sample stored in chain
    DynamicVector<double, columnVector> p(d);       // current momentum sample
    DynamicVector<double, columnVector> qn(d);      // proposed new position sample, also used for intermediate step in RATTLE integrator
    DynamicVector<double, columnVector> pn(d);      // proposed / new momentum sample, also used for intermediate step in RATTLE integrator
@@ -75,7 +79,7 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
    
    double Vq;                                      // potential evaluation: V(q)
    double Vqn;                                     // potential evaluation: V(qn)
-   DynamicVector<double, columnVector> gVq(d);    // gradient of potential evaluation: grad V(q)
+   DynamicVector<double, columnVector> gVq(d);     // gradient of potential evaluation: grad V(q)
    DynamicVector<double, columnVector> gVqn(d);    // gradient of potential evaluation: grad V(qn)
    DynamicVector<double, columnVector> xiq(m);     // constraint function values at q
    DynamicVector<double, columnVector> xiqn(m);    // constraint function values at qn
@@ -83,6 +87,7 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
    DynamicMatrix<double, columnMajor> gxiqn(d,m);  // gradient matrix of constraint functions
    DynamicMatrix<double, columnMajor> Tq(d,n);     // for basis of tangent space
    DynamicMatrix<double, columnMajor> Tqn(d,n);    // for basis of tangent space
+   DynamicMatrix<double, columnMajor> scaled_gxiq(d,m);   // scaled gradient matrix (needed for thermostat)
    
    DynamicVector<double, columnVector> R(n);       // isotropic Gaussian of variance 1 sampled in q-tangent space of level surface S_xi(q)
    DynamicMatrix<double, columnMajor> Agxiq(d,d);  // augmented gxi(q) used for 'full' SVD decomposition
@@ -91,9 +96,14 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
    DynamicVector<double, columnVector> s;          // vector contains m singular values, size m
    DynamicMatrix<double, columnMajor>  Vtr;        // V^t where V contains right singular vectors, size (m x m)
    
+   
    double c1;   // coefficient 1 in thermostat momentum step
    double c2;   // coefficient 2 in thermostat momentum step
    double c3;   // coefficient 3 in thermostat momentum step
+   
+   double c1_s;   // coefficient 1 in thermostat (extended var) momentum step
+   double c2_s;   // coefficient 2 in thermostat (extended var) momentum step
+   double c3_s;   // coefficient 3 in thermostat (extended var) momentum step
    
    double Uq;      // |xi(q)|^2
    double Uqn;     // |xi(qn)|^2
@@ -258,34 +268,59 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
          
          Nsample++;
          for ( int k = 0; k < d; k++){    // add sample to Schain here
-            chain[ k + d * Nsample ]  = q[k];    // value of q[k] where q is iter-th position sample
+            q_res = M.M_sqrt_inv * q;    // mass matrix rescaled sample
+            chain[ k + d * Nsample ]  = q_res[k];    // value of q[k] where q is iter-th position sample
          }
          
       } // end of Soft Metropolis move
-      
-      //------------------------------------------------------------Thermostat half step-------------------------------------------------------------
-      
-      if (LangevinROLL){
-         
-         for (unsigned int k = 0; k < d; k++){  // Sample Isotropic Standard Gaussian
-            Z[k] = SN(RG);
-         }
-         
-         gtygy = trans( gxiq ) * gxiq;          // compute matrix for momentum step projection: gxi(q)^t gxi(q)
-         c1    = 1. - ( gamma * dt * 0.25 );
-         c2    = sqrt( gamma * dt );
-         r     = - trans( gxiq ) * ( c1 * p + c2 * Z );   // right hand side of linear system for projection
-         solve( gtygy, da, r);                            // solve linear system for projection onto Tq
-         
-         c3 = 1. / ( 1. + ( gamma * dt * 0.25 ) );
-         pn = c3 * ( c1 * p + c2 * Z + gxiq * da);        // thermostat momentum step
-         
-         p = pn;    // update momentum
-      }
-      
-      //---------------------------------------------------------------RATTLE steps------------------------------------------------------------------
+   
+      //----------------------------------------------------------Langevin / Hamiltonian move---------------------------------------------------------
       
       if ( Nrattle  > 0 ){
+         
+      //------------------------------------------------------------Thermostat half step--------------------------------------------------------------
+         
+         if (LangevinROLL){
+            
+            for (unsigned int k = 0; k < d; k++){  // Sample Isotropic Standard Gaussian
+               Z[k] = SN(RG);
+            }
+            
+            c1      = 1. - ( gamma_q * dt * 0.25 );
+            c2      = sqrt( gamma_q * dt );
+            c3      = 1. / ( 1. + ( gamma_q * dt * 0.25 ) );
+            
+            c1_s    = 1. - ( gamma_s * dt * 0.25 );
+            c2_s    = sqrt( gamma_s * dt / beta_s );  // divide by beta_s^{-1}
+            c3_s    = 1. / ( 1. + ( gamma_s * dt * 0.25 ) );
+            
+            scaled_gxiq = M.scaled_gxi(gxiq, c3, c3_s);   // Multiply top d-m rows of gxiq by c3 and the bottom m rows by c3_s
+            gtygy = trans( gxiq ) * scaled_gxiq;          // compute matrix for momentum step projection: gxi(q)^t gxi(q)
+            r = c3 * ( c1 * p + c2 * Z );     // right hand side of linear system for projection
+            
+         // adjust for artificial temperature beta_s for (extended variable) momentum:
+            for ( int i = d-m; i < d; i++ ){
+               r[i] = c3_s * ( c1_s * p[i] + c2_s * Z[i] );
+            }
+            
+            r     = - trans( gxiq ) * r;
+            solve( gtygy, da, r);                            // solve linear system for projection onto Tq
+            
+            v  = gxiq * da;       // ********     recycle "v" to store grad(xi)(q) * a     ***********
+            pn = c3 * ( c1 * p + c2 * Z + v );        // thermostat momentum step
+            
+         // adjust for artificial temperature beta_s for (extended variable) momentum:
+            for ( int i = d-m; i < d; i++ ){
+               pn[i] = c3_s * ( c1_s * p[i] + c2_s * Z[i] + v[i] );        // thermostat (extended var) momentum step
+            }
+            
+            p = pn;    // update momentum
+            
+            //cout << trans( gxiq ) * p << endl;
+            
+         }  // end of thermostat (momentum) move
+      
+      //----------------------------------------------------------------RATTLE steps-----------------------------------------------------------------
          
          stats-> HardSample++;     // one Rattle move
          
@@ -498,31 +533,50 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
             
             p = - p;   // very important: apply ** MOMENTUM REVERSAL ** in the rejection step !!
             
-         }
-      }  // end of RATTLE move
+         } // end of RATTLE steps
       
       //------------------------------------------------------------Thermostat half step-------------------------------------------------------------
       
-      if (LangevinROLL){
+         if (LangevinROLL){
+            
+            for (unsigned int k = 0; k < d; k++){  // Sample Isotropic Standard Gaussian
+               Z[k] = SN(RG);
+            }
+            
+            scaled_gxiq = M.scaled_gxi(gxiq, c3, c3_s);   // Multiply top d-m rows of gxiq by c3 and the bottom m rows by c3_s
+            gtygy = trans( gxiq ) * scaled_gxiq;          // compute matrix for momentum step projection: gxi(q)^t gxi(q)
+            r = c3 * ( c1 * p + c2 * Z );     // right hand side of linear system for projection
+            
+         // adjust for artificial temperature beta_s for (extended variable) momentum:
+            for ( int i = d-m; i < d; i++ ){
+               r[i] = c3_s * ( c1_s * p[i] + c2_s * Z[i] );
+            }
+            
+            r     = - trans( gxiq ) * r;
+            solve( gtygy, da, r);                            // solve linear system for projection onto Tq
+            
+            v  = gxiq * da;       // ********     recycle "v" to store grad(xi)(q) * a     ***********
+            pn = c3 * ( c1 * p + c2 * Z + v );        // thermostat momentum step
+            
+         // adjust for artificial temperature beta_s for (extended variable) momentum:
+            for ( int i = d-m; i < d; i++ ){
+               pn[i] = c3_s * ( c1_s * p[i] + c2_s * Z[i] + v[i] );        // thermostat (extended var) momentum step
+            }
+            
+            p = pn;    // update momentum
+            
+            //cout << trans( gxiq ) * p << endl;
+            
+         } // end of thermostat (momentum) move
          
-         for (unsigned int k = 0; k < d; k++){  // Sample Isotropic Standard Gaussian
-            Z[k] = SN(RG);
-         }
+      }  // end of Langevin / Hamiltonian move
          
-         gtygy = trans( gxiq ) * gxiq;          // compute matrix for momentum step projection: gxi(q)^t gxi(q)
-         r     = - trans( gxiq ) * ( c1 * p + c2 * Z );   // right hand side of linear system for projection
-         solve( gtygy, da, r);                            // solve linear system for projection onto Tq
-         
-         pn = c3 * ( c1 * p + c2 * Z + gxiq * da);        // thermostat momentum step
-         
-         p = pn;    // update momentum
-      }
       
-         
       if ( Nsoft == 0 ){  // ONLY FOR DEBUGGING : store the sample when number of Soft moves = 0
          Nsample++;
          for ( int k = 0; k < d; k++){
-            chain[ k + d * Nsample] = q[k];
+            q_res = M.M_sqrt_inv * q;    // mass matrix rescaled sample
+            chain[ k + d * Nsample] = q_res[k];
          }
       } // end of DEBUGGING secton
 

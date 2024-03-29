@@ -36,13 +36,16 @@ struct SamplerStats{                     /* Acceptance/rejection data from the s
 };
 
 
-void HASampler(   vector<double>& chain,         /* Samples output from the MCMC run, pre-allocated, length = d*T */
+void HASampler(   vector<double>& chain,          /* Samples output from the MCMC run, pre-allocated, length = d*T */
                   struct SamplerStats *stats,     /* statistics about different kinds of rections                  */
                   size_t T,                       /* number of MCMC steps        */
                   double eps,                     /* squish parameter            */
                   double dt,                      /* time step size in RATTLE integrator                                    */
-                  double gamma,                   /* friction coefficient for thermostat part in Langevin dynamics          */
-                  int Nsoft,                      /* number of Soft Moves: Gaussian Metropolis move to resample position q  */
+                  double gamma_q,                 /* friction coefficient for (physical) thermostat part in Langevin dynamics              */
+                  double gamma_s,                 /* artificial friction coefficient for (extended) thermostat part in Langevin dynamics    */
+                  double beta_q,                  /* physical inverse temperature                                             */
+                  double beta_s,                  /* artificial inverse temperature for extended variables "s"                */
+                  int Nsoft,                      /* number of Soft Moves: Gaussian Metropolis move to resample position q    */
                   int Nrattle,                    /* number of Rattle steps      */
                   DynamicVector<double>& q0,      /* starting position           */
                   DynamicVector<double>& p0,      /* starting momentum           */

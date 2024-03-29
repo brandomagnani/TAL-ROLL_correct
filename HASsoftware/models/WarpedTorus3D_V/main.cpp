@@ -95,15 +95,22 @@ int main(int argc, char** argv){
    
    int integrate = 1;                // if = 1, then it does the integration to find marginal density for x[0]
    
-   
+
 // --------------------------------------------KEY PARAMETERS FOR SAMPLER---------------------------------------------------------
    
    
    double beta   = 1000.0;                      // squish parameter, beta = 1 / 2*eps^2
    double eps    = 1.0 / sqrt(2.0*beta);        // squish parameter
    
+   double gamma_q = 1.;        // friction coefficient for thermostat part in Langevin dynamics
+   double beta_q  = 1.;        // physical variables inverse temperature
+   
+   double gamma_s = 1.;       // artificial friction coefficient for (extended var) thermostat part in Langevin dynamics
+   double T_s     = 1.;       // artificial temperature for extended variables s, must be large to overcome energy barriers
+   double beta_s  = 1. / T_s;  // artificial inverse temperature
+   
    int Nsoft = 1;          // number of Soft moves for MCMC step
-   int Nrattle = 6;        // number of RATTLE integrator time steps for each MCMC step
+   int Nrattle = 3;        // number of RATTLE integrator time steps for each MCMC step
    
    double kq  = 0.7;       // factor for Soft Position proposal standard dev.
    double sq  = kq*eps;    // standard dev. for Soft Position proposal
@@ -113,11 +120,9 @@ int main(int argc, char** argv){
    
    double dt  = 0.5;       // time step size in RATTLE integrator
    
-   double kg    = 1.0;     // factor for gamma below
-   double gamma = 1.0;     // friction coefficient for thermostat part in Langevin dynamics
-   
    bool gradRATTLE   = true;  // if True, use grad V in RALLTE steps; if False, set grad V = 0 in RATTLE steps
    bool LangevinROLL = true;  // if True, use the Langevin ROLL algorithm; if False, use plain ROLL
+   
    
 // -------------------------------------------------------------------------------------------------------------------------------
    
@@ -131,7 +136,7 @@ int main(int argc, char** argv){
    
    
    auto start = chrono::steady_clock::now();
-   HASampler(chain, &stats, T, eps, dt, gamma, Nsoft, Nrattle, q, p, M, sq, sp, neps, rrc, itm, gradRATTLE, LangevinROLL, RG);
+   HASampler(chain, &stats, T, eps, dt, gamma_q, gamma_s, beta_q, beta_s, Nsoft, Nrattle, q, p, M, sq, sp, neps, rrc, itm, gradRATTLE, LangevinROLL, RG);
    auto end = chrono::steady_clock::now();
    
    int Ts;
@@ -193,8 +198,8 @@ int main(int argc, char** argv){
 
    if ( integrate == 1 ) {
       int ni   = 500;     // number of integration points in each direction
-      double L = -3.0;
-      double R =  3.0;
+      double L = -3.;
+      double R =  3.;
       double x1    = .5;
       vector<double> fl(nx);  // approximate (un-normalized) true pdf for x[0]=x, compute by integrating out x,z variables
       vector<int>    Nxb(nx); // vector counting number of samples in each bin
@@ -274,7 +279,13 @@ int main(int argc, char** argv){
    OutputFile << OutputString << endl;
    StringLength = snprintf( OutputString, sizeof(OutputString),"sp = %10.5e", sp);
    OutputFile << OutputString << endl;
-   StringLength = snprintf( OutputString, sizeof(OutputString),"gamma = %10.5e", gamma);
+   StringLength = snprintf( OutputString, sizeof(OutputString),"gamma_q = %10.5e", gamma_q);
+   OutputFile << OutputString << endl;
+   StringLength = snprintf( OutputString, sizeof(OutputString),"gamma_s = %10.5e", gamma_s);
+   OutputFile << OutputString << endl;
+   StringLength = snprintf( OutputString, sizeof(OutputString),"beta_q = %10.5e", beta_q);
+   OutputFile << OutputString << endl;
+   StringLength = snprintf( OutputString, sizeof(OutputString),"beta_s = %10.5e", beta_s);
    OutputFile << OutputString << endl;
    StringLength = snprintf( OutputString, sizeof(OutputString),"dt = %10.5e", dt);
    OutputFile << OutputString << endl;
@@ -308,3 +319,4 @@ int main(int argc, char** argv){
 
    
 }  // end of main
+

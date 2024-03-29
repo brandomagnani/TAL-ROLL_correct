@@ -91,6 +91,32 @@ Model::Agxi(DynamicMatrix<double, columnMajor> gxi){
    return Agxi;  // last n=d-m columns are zeros
 }
 
+
+// Multiplies the top d-m rows of gxi by c1 and the bottom m rows by c2
+DynamicMatrix<double, columnMajor>
+Model::scaled_gxi(const DynamicMatrix<double, columnMajor>& gxi, double c1, double c2) {
+
+    // Create a copy of the input matrix to hold the results
+    DynamicMatrix<double, columnMajor> scaled_gxi = gxi;
+
+    // Make sure that d is greater than m
+    if(d <= m) {
+        cout << " The number of rows d must be greater than m! " << endl;
+        return scaled_gxi; // Return the unchanged copy in case of error
+    }
+   
+    // Multiply the top d-m rows by c1
+    auto top = submatrix(scaled_gxi, 0, 0, d-m, m);
+    top *= c1;
+
+    // Multiply the bottom m rows by c2
+    auto bottom = submatrix(scaled_gxi, d-m, 0, m, m);
+    bottom *= c2;
+
+    return scaled_gxi;
+}
+
+
 string Model::ModelName(){                  /* Return the name of the model */
    
    return(" 3D Simple Torus ");

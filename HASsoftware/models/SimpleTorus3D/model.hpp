@@ -46,6 +46,10 @@ class Model{
       // Returns gxi(q) augmented to a square matrix (in case d > m), just appends columns of zeros.
       DynamicMatrix<double, columnMajor>
       Agxi(DynamicMatrix<double, columnMajor> gxi);
+      
+      // Multiplies the top d-m rows of gxi by c1 and the bottom m rows by c2
+      DynamicMatrix<double, columnMajor>
+      scaled_gxi(const DynamicMatrix<double, columnMajor>& gxi, double c1, double c2);
    
       // DEFAULT Constructor
       Model();

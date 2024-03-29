@@ -59,7 +59,7 @@ Model::Model(const Model& M0){
 double 
 Model::V(DynamicVector<double, columnVector> q) {
    
-   return 0.;
+   return 0.5 * sqrNorm( q );
 }
 
 DynamicVector<double, columnVector>
@@ -68,7 +68,7 @@ Model::gV(DynamicVector<double, columnVector> q){
    DynamicVector<double, columnVector> gV(d);
    
    for ( int j = 0; j < d; j++ ){
-      gV[j] = 0.;
+      gV[j] = q[j];
    }
    return gV;
 }
@@ -136,8 +136,34 @@ Model::Agxi(DynamicMatrix<double, columnMajor> gxi){
 
 string Model::ModelName(){                  /* Return the name of the model */
    
-   return(" 3D Warped Torus ");
+   return(" 3D Warped Torus with V(q) = |q|^2/2 ");
 }
+
+
+// Multiplies the top d-m rows of gxi by c1 and the bottom m rows by c2
+DynamicMatrix<double, columnMajor>
+Model::scaled_gxi(const DynamicMatrix<double, columnMajor>& gxi, double c1, double c2) {
+
+    // Create a copy of the input matrix to hold the results
+    DynamicMatrix<double, columnMajor> scaled_gxi = gxi;
+
+    // Make sure that d is greater than m
+    if(d <= m) {
+        cout << " The number of rows d must be greater than m! " << endl;
+        return scaled_gxi; // Return the unchanged copy in case of error
+    }
+   
+    // Multiply the top d-m rows by c1
+    auto top = submatrix(scaled_gxi, 0, 0, d-m, m);
+    top *= c1;
+
+    // Multiply the bottom m rows by c2
+    auto bottom = submatrix(scaled_gxi, d-m, 0, m, m);
+    bottom *= c2;
+
+    return scaled_gxi;
+}
+
 
 //  Compute the (un-normalized) probability density for q1 by integrating over
 //  the other two variables.
@@ -152,7 +178,8 @@ double Model::yzIntegrate( double x, double L, double R, double eps, int n){
    double sum = 0.;
    
    DynamicVector<double, columnVector> qv( d);    // point in 3D
-   DynamicVector<double, columnVector> xiv( m);    // values of the constraint functions
+   DynamicVector<double, columnVector> xiv( m);   // values of the constraint functions
+   double Vqv( d);                                // values of potential
    
    qv[0] = x;
    for ( int j = 0; j < n; j++){
@@ -162,7 +189,8 @@ double Model::yzIntegrate( double x, double L, double R, double eps, int n){
          z = L + k*dz + .5*dz;
          qv[2] = z;
          xiv = xi(qv);
-         sum += exp( - 0.5*(trans(xiv)*xiv)/(eps*eps) );
+         Vqv = V(qv);
+         sum += exp( - Vqv - 0.5*(trans(xiv)*xiv)/(eps*eps) );
       }
    }
    return dy*dz*sum;
