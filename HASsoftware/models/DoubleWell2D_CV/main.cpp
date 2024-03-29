@@ -275,7 +275,7 @@ int main(int argc, char** argv){
    
 //   Histogram of the s coordinate (Collective Variable) q[2]= z = s
       
-   int ns   = 100;             // number of x1 values for the PDF and number of x1 bins
+   int ns   = nx;             // number of x1 values for the PDF and number of x1 bins
          
    int outliers = 0;       //  number of samples outside the histogram range
    double s    = .5;
