@@ -27,7 +27,7 @@ using namespace blaze;
 
 int main(int argc, char** argv){
    
-   const int d = 3;       // dimension of ambient space
+   const int d = 3;       // dimension of ambient space (2D + extra dimension for CV = 3D)
    const int m = 1;       // number of constraint functions
 
    
@@ -45,10 +45,12 @@ int main(int argc, char** argv){
    double kappa = 1.;
    double lambda = 2.878;
    
-   // Create a mass DynamicVector of size d filled with ones
+// Create a mass DynamicVector of size d filled with ones
+   
    DynamicVector<double, columnVector> masses(d, 1.0);
-   double ms = 1000.;  // mass for CV
+   double ms = 1000.;  // high mass for CV (adiabatic separation)
    masses[2] *= ms;
+   
    
    Model M( d, m, D0, a, kappa, lambda, masses );   // instance of model " 2D Double Well "
    
