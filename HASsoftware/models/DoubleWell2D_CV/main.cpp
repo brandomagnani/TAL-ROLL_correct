@@ -70,13 +70,13 @@ int main(int argc, char** argv){
    
 // Starting point on Cotangent Bundle T S_0 :
    
-   q[0] = 1.1;       // ON 3D plane where x1 = x3 (where x3 = s, the extended variable)
+   q[0] = 1.;       // ON 3D plane where x1 = x3 (where x3 = s, the extended variable)
    q[1] = -0.7;
-   q[2] = 1.1;
+   q[2] = 1.;
 
-   p[0] = 1.19;     // ON the tangent space: 3D plane where x1 = x3 (where x3 = s, the extended variable)
+   p[0] = 1.;     // ON the tangent space: 3D plane where x1 = x3 (where x3 = s, the extended variable)
    p[1] = -0.7;
-   p[2] = 1.19;
+   p[2] = 1.;
    
    q_tilde = M.M_sqrt * q;
    p_tilde = M.M_sqrt_inv * p;
@@ -104,8 +104,8 @@ int main(int argc, char** argv){
    double gamma_q = 1.;        // friction coefficient for thermostat part in Langevin dynamics
    double beta_q  = 1.;        // physical variables inverse temperature
    
-   double gamma_s = 1.0;       // artificial friction coefficient for (extended var) thermostat part in Langevin dynamics
-   double T_s     = 1.;          // artificial temperature for extended variables s, must be large to overcome energy barriers
+   double gamma_s = 1.;       // artificial friction coefficient for (extended var) thermostat part in Langevin dynamics
+   double T_s     = 2.;          // artificial temperature for extended variables s, must be large to overcome energy barriers
    double beta_s  = 1. / T_s;    // artificial inverse temperature
    
    int Nsoft = 1;          // number of Soft moves for MCMC step
@@ -281,12 +281,12 @@ int main(int argc, char** argv){
    int outliers = 0;       //  number of samples outside the histogram range
    double s    = .5;
    vector<int>    Nsb(ns); // vector counting number of samples in each bin
-   vector<double> CV(Ts);  // contains the value of CV s=q[2]
+   vector<double> chainCV(Ts);  // contains the value of CV s=q[2]
    for ( bin = 0; bin < ns; bin++) Nsb[bin] = 0;
    double ds = ( Rz - Lz )/( (double) ns);
    for ( unsigned int iter = 0; iter < Ts; iter++ ){
       s = chain[ 2 + d*iter ];  // same as before, but with k=2 as we need q[2] of iter-th good sample
-      CV[iter] = s;
+      chainCV[iter] = s;
       bin = (int) ( ( s - Lz )/ ds);
       if ( ( bin >= 0 ) && ( bin < ns ) ){
          Nsb[bin]++;
@@ -361,8 +361,8 @@ int main(int argc, char** argv){
    
 // Write Nsb in binary format (in a file called "Nsb.bin"). Contains bin count for s (CV)
    size_t CV_size = Ts;
-   ofstream ostream2("CV.bin", ios::out | ios::binary);
-   ostream2.write((char*)&CV[0], CV_size * sizeof(double));
+   ofstream ostream2("chainCV.bin", ios::out | ios::binary);
+   ostream2.write((char*)&chainCV[0], CV_size * sizeof(double));
    ostream2.close();
 
    

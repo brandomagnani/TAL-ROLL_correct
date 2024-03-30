@@ -34,10 +34,10 @@ except IOError:
    thetas_test = False
    
    
-# read CV from binary file, cast it to vector called CV
+# read chainCV from binary file, cast it to vector called CV
 dtype = np.dtype('double')
 try:
-   with open("CV.bin", "rb") as f:
+   with open("chainCV.bin", "rb") as f:
        CV = np.fromfile(f,dtype)
        CV = CV[ CV != 0 ]
 except IOError:
@@ -52,10 +52,69 @@ X = np.reshape(X, (Ts,d))
 end = time.time()
 
 
+
+print("---------------------------------------------------")
+OutputLine = " chain has " + str(Ts) + " rows and " + str(d) + " columns "
+print(OutputLine)
+print(" Time to read chain from binary =  %.4f seconds" %(end-start))
+eps = ChainOutput.eps
+beta_eps = 1.0 / (2.0*eps*eps)
+ac  = acor.acov(X[:,0])
+tau = acor.act(ac, Nmin = 20, w = 7)
+print(" tau = %.2f" %tau)
+print("---------------------------------------------------")
+
+np1 = 5*int(tau)
+
+#-------------------------------Plot of Autocovariance-------------------------
+if (chain_test==True):
+   fig, ax = plt.subplots()
+   ax.plot(range(np1), ac[0:np1], 'bo', label = 'auto-covariance')
+   ax.set_ylabel('covariance')
+   ax.set_xlabel('lag')
+   title = ChainOutput.ModelName
+   ax.set_title(title)
+   ax.grid()
+
+   ymin, ymax = ax.get_ylim()
+   tauLabel = 'tau = {0:8.2f}'.format(tau)
+   ax.vlines(tau,  ymin, ymax, label = tauLabel, colors='r')
+   ax.legend()
+
+   runInfo = r"$\beta_{\varepsilon}=\frac{1}{2\varepsilon^2}=%.1f$" % (beta_eps) + ", "
+   runInfo = runInfo + r"$\varepsilon=%.3f$" % (ChainOutput.eps) + "\n"
+   runInfo = runInfo + r"$N_{soft}=%d$" % (ChainOutput.Nsoft) + ", "
+   runInfo = runInfo + r"$N_{rattle}=%d$" % (ChainOutput.Nrattle) + "\n"
+   runInfo = runInfo + r"$s_q=%.2f$" % (ChainOutput.kq) + r"$\varepsilon$" + ", "
+   runInfo = runInfo + r"$s_p=%.2f$" % (ChainOutput.kp) + r"$\varepsilon$"  + ", "
+   runInfo = runInfo + r"$\Delta t=%.2f$" % (ChainOutput.dt)  + "\n"
+   runInfo = runInfo + r"$A_s=%.3f$" % (ChainOutput.As) + ", "
+   runInfo = runInfo + r"$A_r=%.3f$" % (ChainOutput.Ar) + "\n"
+   runInfo = runInfo + r"$T_s=%d$" % (Ts) + ", "
+   runInfo = runInfo + r"$T=%d$" % (ChainOutput.T)
+
+   # these are matplotlib.patch.Patch properties
+   props = dict(boxstyle='round', facecolor='white', alpha=0.8)
+
+   # place a text box in upper left in axes coords
+   ax.text(0.55, 0.8, runInfo, transform=ax.transAxes, fontsize=10,
+           verticalalignment='top', bbox=props)
+
+
+   plt.savefig('AutoCovariance.pdf')
+   #plt.show()
+
+
+
+
+
 #-------------------------------CV histogram-----------------------------
 if (CV_test==True):
    nCVbins = 80
+   beta_q = ChainOutput.beta_q  # Assuming this comes from somewhere
    beta_s = ChainOutput.beta_s  # Assuming this comes from somewhere
+   T_q = 1. / beta_q
+   T_s = 1./ beta_s
 
    # Compute the histogram of CV values
    hist, bin_edges = np.histogram(CV, bins=nCVbins, density=True)
@@ -103,11 +162,19 @@ if (CV_test==True):
    ax.set_title('Estimated and True Free Energy Profiles')
 
    # Add annotation for the number of samples and relative error
-   samples_text = f"Number of Samples: {ChainOutput.Ts}"
-   error_text = f"Relative Error: {error_percentage:.2f}%"
+   samples_text  = f"Number of Samples: {ChainOutput.Ts}"
+   error_text    = f"Relative Error: {error_percentage:.2f}%"
+   beta_eps_text = f"Constraining Potential Inverse Temperature  $\\beta_{{\\varepsilon}}$: {beta_eps:.2f}"
+   beta_q_text   = f"Physical Temperature  $T$: {T_q:.2f}"
+   beta_s_text   = f"Artificial Temperature  $T_s$: {T_s:.2f}"
+   tau_text      = f"Auto-correlation Time  $\\tau$: {tau:.2f}"
    ax.text(0.1, 0.99, samples_text, transform=ax.transAxes, verticalalignment='top')
-   ax.text(0.1, 0.97, error_text, transform=ax.transAxes, verticalalignment='top')
-
+   ax.text(0.1, 0.96, error_text, transform=ax.transAxes, verticalalignment='top')
+   ax.text(0.1, 0.93, beta_eps_text, transform=ax.transAxes, verticalalignment='top')
+   ax.text(0.1, 0.90, beta_q_text, transform=ax.transAxes, verticalalignment='top')
+   ax.text(0.1, 0.87, beta_s_text, transform=ax.transAxes, verticalalignment='top')
+   ax.text(0.1, 0.84, tau_text, transform=ax.transAxes, verticalalignment='top')
+      
    ax.legend(loc='upper right')
    plt.savefig('freeEnergy.pdf')  # Save the figure
    plt.close(fig)  # Close the figure
@@ -118,64 +185,17 @@ if (CV_test==True):
    ax.set_xlabel('CV')
    ax.set_ylabel('Probability Density of CV')
    ax.set_title('Histogram of CV')
-
+   
    # Add annotation for the number of samples to the histogram plot
-   ax.text(0.05, 0.98, samples_text, transform=ax.transAxes, verticalalignment='top')
+   ax.text(0.35, 0.99, samples_text, transform=ax.transAxes, verticalalignment='top')
+   ax.text(0.35, 0.96, beta_eps_text, transform=ax.transAxes, verticalalignment='top')
+   ax.text(0.35, 0.93, beta_q_text, transform=ax.transAxes, verticalalignment='top')
+   ax.text(0.35, 0.90, beta_s_text, transform=ax.transAxes, verticalalignment='top')
+   ax.text(0.35, 0.87, tau_text, transform=ax.transAxes, verticalalignment='top')
 
    plt.savefig('CVhist.pdf')  # Save the histogram figure
    plt.close(fig)  # Close the figure
 #-------------------------------------------------------------------------------------------
-
-print("---------------------------------------------------")
-OutputLine = " chain has " + str(Ts) + " rows and " + str(d) + " columns "
-print(OutputLine)
-print(" Time to read chain from binary =  %.4f seconds" %(end-start))
-eps = ChainOutput.eps
-beta = 1.0 / (2.0*eps*eps)
-ac  = acor.acov(X[:,0])
-tau = acor.act(ac, Nmin = 20, w = 7)
-print(" tau = %.2f" %tau)
-print("---------------------------------------------------")
-
-np1 = 5*int(tau)
-
-#-------------------------------Plot of Autocovariance-------------------------
-if (chain_test==True):
-   fig, ax = plt.subplots()
-   ax.plot(range(np1), ac[0:np1], 'bo', label = 'auto-covariance')
-   ax.set_ylabel('covariance')
-   ax.set_xlabel('lag')
-   title = ChainOutput.ModelName
-   ax.set_title(title)
-   ax.grid()
-
-   ymin, ymax = ax.get_ylim()
-   tauLabel = 'tau = {0:8.2f}'.format(tau)
-   ax.vlines(tau,  ymin, ymax, label = tauLabel, colors='r')
-   ax.legend()
-
-   runInfo = r"$\beta=\frac{1}{2\varepsilon^2}=%.1f$" % (beta) + ", "
-   runInfo = runInfo + r"$\varepsilon=%.3f$" % (ChainOutput.eps) + "\n"
-   runInfo = runInfo + r"$N_{soft}=%d$" % (ChainOutput.Nsoft) + ", "
-   runInfo = runInfo + r"$N_{rattle}=%d$" % (ChainOutput.Nrattle) + "\n"
-   runInfo = runInfo + r"$s_q=%.2f$" % (ChainOutput.kq) + r"$\varepsilon$" + ", "
-   runInfo = runInfo + r"$s_p=%.2f$" % (ChainOutput.kp) + r"$\varepsilon$"  + ", "
-   runInfo = runInfo + r"$\Delta t=%.2f$" % (ChainOutput.dt)  + "\n"
-   runInfo = runInfo + r"$A_s=%.3f$" % (ChainOutput.As) + ", "
-   runInfo = runInfo + r"$A_r=%.3f$" % (ChainOutput.Ar) + "\n"
-   runInfo = runInfo + r"$T_s=%d$" % (Ts) + ", "
-   runInfo = runInfo + r"$T=%d$" % (ChainOutput.T)
-
-   # these are matplotlib.patch.Patch properties
-   props = dict(boxstyle='round', facecolor='white', alpha=0.8)
-
-   # place a text box in upper left in axes coords
-   ax.text(0.55, 0.8, runInfo, transform=ax.transAxes, fontsize=10,
-           verticalalignment='top', bbox=props)
-
-
-   plt.savefig('AutoCovariance.pdf')
-   #plt.show()
 
 
 #-------------------------------Theta histogram-----------------------------
