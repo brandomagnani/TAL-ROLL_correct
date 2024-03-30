@@ -21,4 +21,9 @@ main.o : $(ModelDir)/main.cpp $(ModelDir)/model.hpp HAS.hpp
 	g++ -std=c++14 -I$(ModelDir) -c $(ModelDir)/main.cpp
 
 clean:
-	rm -f *.o mainExec
+	rm -f *.o mainExec output
+	rm -rf __pycache__
+	
+clean-all:
+	rm -f *.o mainExec output *.bin
+	rm -rf __pycache__

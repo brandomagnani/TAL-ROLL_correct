@@ -84,7 +84,7 @@ int main(int argc, char** argv){
 
 // --------------------------------------------------SET SAMPLE SIZE & TOL--------------------------------------------------------
 
-   size_t T      = 2e7;          // number of MCMC steps
+   size_t T      = 2e6;          // number of MCMC steps
    double neps   = 1.e-10;       // convergence tolerance for Newton projection
    double rrc    = 1.e-8;        // closeness criterion for the reverse check
    int itm       = 6;            // maximum number of Newtons iterations
