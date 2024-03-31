@@ -105,7 +105,7 @@ int main(int argc, char** argv){
    double beta_q  = 1.;        // physical variables inverse temperature
    
    double gamma_s = 1.;       // artificial friction coefficient for (extended var) thermostat part in Langevin dynamics
-   double T_s     = 2.;          // artificial temperature for extended variables s, must be large to overcome energy barriers
+   double T_s     = 1.5;          // artificial temperature for extended variables s, must be large to overcome energy barriers
    double beta_s  = 1. / T_s;    // artificial inverse temperature
    
    int Nsoft = 1;          // number of Soft moves for MCMC step
