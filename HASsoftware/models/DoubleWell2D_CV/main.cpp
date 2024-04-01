@@ -84,7 +84,7 @@ int main(int argc, char** argv){
 
 // --------------------------------------------------SET SAMPLE SIZE & TOL--------------------------------------------------------
 
-   size_t T      = 2e6;          // number of MCMC steps
+   size_t T      = 2e7;          // number of MCMC steps
    double neps   = 1.e-10;       // convergence tolerance for Newton projection
    double rrc    = 1.e-8;        // closeness criterion for the reverse check
    int itm       = 6;            // maximum number of Newtons iterations
@@ -104,7 +104,7 @@ int main(int argc, char** argv){
    double gamma_q = 1.;        // friction coefficient for thermostat part in Langevin dynamics
    double beta_q  = 1.;        // physical variables inverse temperature
    
-   double gamma_s = 1.;       // artificial friction coefficient for (extended var) thermostat part in Langevin dynamics
+   double gamma_s = 1.0;       // artificial friction coefficient for (extended var) thermostat part in Langevin dynamics
    double T_s     = 1.5;          // artificial temperature for extended variables s, must be large to overcome energy barriers
    double beta_s  = 1. / T_s;    // artificial inverse temperature
    
