@@ -287,7 +287,7 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
             }
             
             c1      = 1. - ( gamma_q * dt * 0.25 );
-            c2      = sqrt( gamma_q * dt );
+            c2      = sqrt( gamma_q * dt / beta_q );
             c3      = 1. / ( 1. + ( gamma_q * dt * 0.25 ) );
             
             c1_s    = 1. - ( gamma_s * dt * 0.25 );
