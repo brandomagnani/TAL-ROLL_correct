@@ -54,13 +54,18 @@ int main(int argc, char** argv){
    s[1] = sqrt(3.);
    s[2] = sqrt(5.);
    
+   // Create a mass DynamicVector of size d filled with ones
+      
+   DynamicVector<double, columnVector> masses(d, 1.0);
+   double ms = 1.0;
+   masses[2] *= ms;
+   
    // copy the parameters into the instance model
    
-   
-   Model M( d, m, r, s, c);   // instance of model " 3D Warped Torus "
+   Model M( d, m, r, s, c, masses);   // instance of model " 3D Warped Torus "
 
 
-   
+
    cout << "--------------------------------------" << endl;
    cout << "\n  Running model: " << M.ModelName() << "\n" << endl;
    
@@ -83,9 +88,10 @@ int main(int argc, char** argv){
    p[1] = 0.119011589305959;
    p[2] = -0.0902347507341671;
 
+   auto q_tilde = M.M_sqrt * q;
+   auto p_tilde = M.M_sqrt_inv * p;
 
-
-   size_t T      = 2e7;          // number of MCMC steps
+   size_t T      = 2e6;          // number of MCMC steps
    double neps   = 1.e-10;       // convergence tolerance for Newton projection
    double rrc    = 1.e-8;        // closeness criterion for the reverse check
    int itm       = 6;            // maximum number of Newtons iterations
@@ -103,11 +109,12 @@ int main(int argc, char** argv){
    double eps    = 1.0 / sqrt(2.0*beta);        // squish parameter
    
    double gamma_q = 1.;        // friction coefficient for thermostat part in Langevin dynamics
-   double beta_q  = 1.;        // physical variables inverse temperature
+   double T_q     = 1.;        // physical temperature
+   double beta_q  = 1. / T_q;  // physical variables inverse temperature
    
    double gamma_s = 1.;       // artificial friction coefficient for (extended var) thermostat part in Langevin dynamics
-   double T_s     = 1.;       // artificial temperature for extended variables s, must be large to overcome energy barriers
-   double beta_s  = 1. / T_s;  // artificial inverse temperature
+   double T_s     = T_q.;     // artificial temperature for extended variables s, must be large to overcome energy barriers
+   double beta_s  = 1. / T_s; // artificial inverse temperature
    
    int Nsoft = 1;          // number of Soft moves for MCMC step
    int Nrattle = 3;        // number of RATTLE integrator time steps for each MCMC step
@@ -190,30 +197,38 @@ int main(int argc, char** argv){
    
 //   NO ANGLE CHECK
    
+   double Lx = -3.;   // left x boundary for histogram check
+   double Rx =  3.;   // right x boundary for histogram check
+   int nx   = 100;       // number of x1 values for the PDF and number of x1 bins
+   
+   double Ly =  Lx;  // left y boundary for integration / histogram check
+   double Ry =  Rx;   // right y boundary for integration / histogram check
+   int niy   = 500;     // number of integration points in y-direction
+   
+   double Lz = Lx;    // left z boundary for integration / histogram check
+   double Rz = Rx;    // right z boundary for integration / histogram check
+   int niz   = niy;      // number of integration points in z-direction
+   
    
 //   Histogram of the x coordinates q[0]=x, q[1]=y, q[2]=z
    
-   int nx   = 100;             // number of x1 values for the PDF and number of x1 bins
    vector<double> Ratio(nx);   // contains the random variables Ri_N
 
    if ( integrate == 1 ) {
-      int ni   = 500;     // number of integration points in each direction
-      double L = -3.;
-      double R =  3.;
       double x1    = .5;
       vector<double> fl(nx);  // approximate (un-normalized) true pdf for x[0]=x, compute by integrating out x,z variables
       vector<int>    Nxb(nx); // vector counting number of samples in each bin
       for ( bin = 0; bin < nx; bin++) Nxb[bin] = 0;
-      double dx = ( R - L )/( (double) nx);
+      double dx = ( Rx - Lx )/( (double) nx);
       for ( int i=0; i<nx; i++){
-         x1 = L + dx*i + .5*dx;
-         fl[i] = M.yzIntegrate( x1, L, R, eps, ni);
+         x1 = Lx + dx*i + .5*dx;
+         fl[i] = M.yzIntegrate( x1, Ly, Ry, Lz, Rz, eps, niy, niz);
       }
       
       int outliers = 0;       //  number of samples outside the histogram range
       for ( unsigned int iter = 0; iter < Ts; iter++){
          x1 = chain[ d*iter ];  // same as before, but with k=0 as we need q[0] of iter-th good sample
-         bin = (int) ( ( x1 - L )/ dx);
+         bin = (int) ( ( x1 - Lx )/ dx);
          if ( ( bin >= 0 ) && ( bin < nx ) ){
             Nxb[bin]++;
          }
@@ -227,7 +242,7 @@ int main(int argc, char** argv){
       cout << "   bin    center      count      pdf          1/Z" << endl;
       for ( bin = 0; bin < nx; bin++){
          if ( Nxb[bin] > 0 ) {
-            x1 = L + dx*bin + .5*dx;
+            x1 = Lx + dx*bin + .5*dx;
             Z = ( (double) Nxb[bin]) / ( (double) Ts*dx*fl[bin]);
             Ratio[bin] = Z;
             StringLength = snprintf( OutputString, sizeof(OutputString)," %4d   %8.3f   %8d   %9.3e    %9.3e", bin, x1, Nxb[bin], fl[bin], Z);

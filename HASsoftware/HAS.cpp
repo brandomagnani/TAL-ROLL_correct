@@ -110,7 +110,8 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
    double A;       //  Metropolis ratio
    double detq, detqn;    // detq = sqrt( det(gtg) ) = det(S) where S is the singular value matrix in reduced SVD of ( gxi * gxi^t )
    double v_sqn, vr_sqn;  // |v|^2, |vrev|^2  used in Metropolis-Hastings check for Soft move
-   double p_sqn, pn_sqn;  // |p|^2, |pn|^2  used in both Metropolis-Hastings checks
+   double pf_sqn, pfn_sqn;  // |pf|^2, |pfn|^2  used in both Metropolis-Hastings checks  (first d-m entries of p and pn)
+   double ps_sqn, psn_sqn;   // |ps|^2, |psn|^2  used in both Metropolis-Hastings checks  (last  m   entries of p and pn)
    
    int       softFlag;                       // a flag describing where in the SOFT move step you are
    const int Met_rej_soft               = 1;         // the proposed qn was rejected by Metropolis
@@ -241,10 +242,20 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
          Uqn     = sqrNorm( xiqn );         // |xi(qn)|^2
          v_sqn   = sqrNorm( v );            // |v|^2
          vr_sqn  = sqrNorm( vr );           // |vrev|^2
-         p_sqn   = sqrNorm( p );            // |p|^2
-         pn_sqn  = sqrNorm( pn );           // |pn|^2
          
-         A = exp( (Vq - Vqn) + 0.5*( ((Uq - Uqn) / (eps*eps)) + ((v_sqn - vr_sqn) / (sp*sp)) + (p_sqn - pn_sqn) ) );  // Metropolis ratio
+         auto pf  = subvector( p,  0, d-m );    // first d-m entries of p
+         auto pfn = subvector( pn, 0, d-m );   // first d-m entries of pn
+         pf_sqn  = sqrNorm( pf );     // |pf|^2  for M-H ratio
+         pfn_sqn = sqrNorm( pfn );    // |pfn|^2 for M-H ratio
+         
+         auto ps  = subvector( p,  d-m, m );    // last m entries of p
+         auto psn = subvector( pn, d-m, m );   // last m entries of pn
+         ps_sqn  = sqrNorm( ps );     // |ps|^2  for M-H ratio
+         psn_sqn = sqrNorm( psn );    // |psn|^2 for M-H ratio
+         
+      // NOTE: the part which involves ps is adjusted for artificial temperature beta_s
+         A = exp( beta_q*( (Vq - Vqn) + 0.5*( ((Uq - Uqn) / (eps*eps)) + ((v_sqn - vr_sqn) / (sp*sp)) + (pf_sqn - pfn_sqn) ) )
+                  + 0.5*beta_s*(ps_sqn - psn_sqn) );  // Metropolis ratio
          
          if ( SU(RG) > A ){      // Accept with probability A,
             softFlag = Met_rej_soft;    // rejected
@@ -268,7 +279,7 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
          
          Nsample++;
          for ( int k = 0; k < d; k++){    // add sample to Schain here
-            q_res = M.M_sqrt_inv * q;    // mass matrix rescaled sample
+            q_res = M.M_sqrt_inv * q;     // mass-weighted coordinates --> original coordinates
             chain[ k + d * Nsample ]  = q_res[k];    // value of q[k] where q is iter-th position sample
          }
          
@@ -315,8 +326,6 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
             }
             
             p = pn;    // update momentum
-            
-            //cout << trans( gxiq ) * p << endl;
             
          }  // end of thermostat (momentum) move
       
@@ -505,13 +514,21 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
             }
             
             Vqn    = M.V(qn);        // V(qn)   (not yet evaluated, since it was not necessary in RATTLE steps)
-            p_sqn  = sqrNorm( p );   // |p|^2  for M-H ratio
-            pn_sqn = sqrNorm( pn );  // |pn|^2 for M-H ratio
             
-            // NOTE: Here can add V(q) and V(qn) to M-H ratio, for now assume V=0
+            auto pf  = subvector( p,  0, d-m );    // first d-m entries of p
+            auto pfn = subvector( pn, 0, d-m );   // first d-m entries of pn
+            pf_sqn  = sqrNorm( pf );     // |pf|^2  for M-H ratio
+            pfn_sqn = sqrNorm( pfn );    // |pfn|^2 for M-H ratio
             
-            A  = exp( Vq - Vqn + .5*( p_sqn - pn_sqn ) ); //  part of the Metropolis ratio
-            A *= ( detq / detqn );    // since r(q)/r(qn) = detq/detqn
+            auto ps  = subvector( p,  d-m, m );    // last m entries of p
+            auto psn = subvector( pn, d-m, m );   // last m entries of pn
+            ps_sqn  = sqrNorm( ps );     // |ps|^2  for M-H ratio
+            psn_sqn = sqrNorm( psn );    // |psn|^2 for M-H ratio
+            
+            
+         // NOTE: the part which involves ps is adjusted for artificial temperature beta_s
+            A  = exp( beta_q*( Vq - Vqn + .5*( pf_sqn - pfn_sqn ) ) + .5*beta_s*( ps_sqn - psn_sqn ) ); //  part of the Metropolis ratio
+            A *= detq / detqn;    // since r(q)/r(qn) = detq/detqn
             
             if ( SU(RG) > A ){      // Accept with probability A,
                stats->HardRejectionMetropolis++;
@@ -575,7 +592,7 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
       if ( Nsoft == 0 ){  // ONLY FOR DEBUGGING : store the sample when number of Soft moves = 0
          Nsample++;
          for ( int k = 0; k < d; k++){
-            q_res = M.M_sqrt_inv * q;    // mass matrix rescaled sample
+            q_res = M.M_sqrt_inv * q;    // mass-weighted coordinates --> original coordinates
             chain[ k + d * Nsample] = q_res[k];
          }
       } // end of DEBUGGING secton

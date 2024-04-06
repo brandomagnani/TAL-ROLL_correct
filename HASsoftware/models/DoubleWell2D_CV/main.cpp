@@ -84,7 +84,7 @@ int main(int argc, char** argv){
 
 // --------------------------------------------------SET SAMPLE SIZE & TOL--------------------------------------------------------
 
-   size_t T      = 2e7;          // number of MCMC steps
+   size_t T      = 2e6;          // number of MCMC steps
    double neps   = 1.e-10;       // convergence tolerance for Newton projection
    double rrc    = 1.e-8;        // closeness criterion for the reverse check
    int itm       = 6;            // maximum number of Newtons iterations
@@ -102,11 +102,12 @@ int main(int argc, char** argv){
    double eps    = 1.0 / sqrt(2.0*beta);        // squish parameter
    
    double gamma_q = 1.;        // friction coefficient for thermostat part in Langevin dynamics
-   double beta_q  = 1.;        // physical variables inverse temperature
+   double T_q     = 1.;        // physical temperature
+   double beta_q  = 1. / T_q;  // physical variables inverse temperature
    
    double gamma_s = 1.0;       // artificial friction coefficient for (extended var) thermostat part in Langevin dynamics
-   double T_s     = 1.5;          // artificial temperature for extended variables s, must be large to overcome energy barriers
-   double beta_s  = 1. / T_s;    // artificial inverse temperature
+   double T_s     = 50.;       // SAMPLES EXACTLY NO MATTER WHAT IS T_s: artificial temperature for extended variables s
+   double beta_s  = 1. / T_s;  // artificial inverse temperature
    
    int Nsoft = 1;          // number of Soft moves for MCMC step
    int Nrattle = 8;        // number of RATTLE integrator time steps for each MCMC step
@@ -117,7 +118,7 @@ int main(int argc, char** argv){
    double kp  = 1.0;       // factor for Soft Momentum proposal standard dev.
    double sp  = kp*eps;    // standard dev. for Soft Momentum proposal
    
-   double dt  = 1.5;       // time step size in RATTLE integrator
+   double dt  = 2.5;       // time step size in RATTLE integrator
    
    bool gradRATTLE   = true;  // if True, use grad V in RALLTE steps; if False, set grad V = 0 in RATTLE steps
    bool LangevinROLL = true;  // if True, use the Langevin ROLL algorithm; if False, use plain ROLL

@@ -123,7 +123,7 @@ if (CV_test==True):
    bin_midpoints = (bin_edges[:-1] + bin_edges[1:]) / 2
 
    # Calculate the estimated free energy and normalize so the minimum is at zero
-   F_hat = -(1. / beta_s) * np.log(hist)
+   F_hat = -(1. / beta_q) * np.log(hist)
    F_hat -= np.min(F_hat)
 
    # Free Energy parameters

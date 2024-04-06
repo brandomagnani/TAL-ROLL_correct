@@ -151,18 +151,26 @@ double Model::yzIntegrate(double x, double Ly, double Ry, double Lz, double Rz, 
 //  Use the rectangle rule in the y and z directions with n midpoints in each direction
 
    double dy  = (Ry-Ly)/( (double) niy);
-   double y;
+   double dz  = (Rz-Lz)/( (double) niz);
+   double y, z;
    double sum = 0.;
    
    DynamicVector<double, columnVector> qv( d);    // point in 3D
+   DynamicVector<double, columnVector> xiv( m);   // values of the constraint functions
    double Vqv( d);                                // values of potential
    
    qv[0] = x;
    for ( int j = 0; j < niy; j++){
       y = Ly + j*dy + .5*dy;
       qv[1] = y;
-      Vqv = V(qv);
-      sum += exp( - Vqv );
+      for ( int k = 0; k < niz; k++) {
+         z = Lz + k*dz + .5*dz;
+         qv[2] = z;
+         qv  = M_sqrt * qv;   // since xi(qv) = \xi( M_sqrt_inv * qv ) and V(qv) = \V( M_sqrt_inv * qv )
+         xiv = xi(qv);
+         Vqv = V(qv);
+         sum += exp( - Vqv - 0.5*(trans(xiv)*xiv)/(eps*eps) );
+      }
    }
-   return dy*sum;
+   return dz*dy*sum;
 }

@@ -35,7 +35,15 @@ class Model{
       int d;     // dimension of the ambient space
       int m;     // number of constraint functions
       int n;     // dimension of the hard constraint manifold = d-m
+      DynamicVector<double, columnVector> masses; // Vector of masses
+      DynamicMatrix<double, columnMajor> M; // Optional mass matrix parameter
+      DynamicMatrix<double, columnMajor> M_sqrt;  // Square root of M
+      DynamicMatrix<double, columnMajor> M_sqrt_inv;  // Inverse of the square root of M
       
+      // Method to compute square root and inverse of square root of M, if M is initialized
+      bool 
+      computeMSqrtAndInv();
+   
       double                                          /* evaluates the                  */
       V( DynamicVector<double, columnVector> q );     /* potential V(q)                 */
    
@@ -50,7 +58,7 @@ class Model{
    
       // Returns gxi(q) augmented to a square matrix (in case d > m), just appends columns of zeros.
       DynamicMatrix<double, columnMajor>
-      Agxi(DynamicMatrix<double, columnMajor> gxi);
+      Agxi(DynamicMatrix<double, columnMajor>& gxi);
    
       // Multiplies the top d-m rows of gxi by c1 and the bottom m rows by c2
       DynamicMatrix<double, columnMajor>
@@ -59,22 +67,24 @@ class Model{
       // DEFAULT Constructor
       Model();
    
-      // PARAMETRIZED Constructor
-      Model( int d0, int m0,               /* ambient dimension and constraint number */
-             double                r00,    /* radus of sphere   */
-             DynamicVector<double> s0,     /* dimensional radius numbers for the ellipsoid  */
-             DynamicMatrix<double, columnMajor> c0); // column k = cdnter of sphere k
-   
-      // COPY Constructor
-      Model(const Model& M0);
+      // Parametrized constructor with masses
+      Model(int d,                                              /* dimension of the ambient space */
+            int m,                                              /* number of constraints          */
+            double r,                                           /* radus of sphere                              */
+            const DynamicVector<double>& s,                     /* dimensional radius numbers for the ellipsoid */
+            const DynamicMatrix<double, columnMajor>& c,        /* column 0 = cdnter of round sphere,  column 1 = center of ellipsoid  */
+            const DynamicVector<double, columnVector>& masses); /* vector containing masses for diagonal mass tensor */
    
       string ModelName();                  /* Return the name of the model */
       
       double yzIntegrate( double x,        /* Integrate e^{-beta*U(x,y,z)} over y and z */
-                          double L,        /* Integrate from y = L to y = R    */
-                          double R,        /* Integrate z over the same range  */
-                          double eps,      /* The temperature parameter*/
-                          int n);          /* the number of integration points in each dir */
+                          double Ly,       /* Integrate from y = Ly to y = Ry    */
+                          double Ry,
+                          double Lz,       /* Integrate from z = Lz to z = Rz    */
+                          double Rz,
+                          double eps,      /* The oscillatory parameter */
+                          int niy,          /* the number of integration points in y dir */
+                          int niz);         /* the number of integration points in z dir */
 
 };
 
