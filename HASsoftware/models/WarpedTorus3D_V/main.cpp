@@ -320,6 +320,14 @@ int main(int argc, char** argv){
    OutputFile << OutputString << endl;
    StringLength = snprintf( OutputString, sizeof(OutputString),"d = %10d", d);
    OutputFile << OutputString << endl;
+   StringLength = snprintf( OutputString, sizeof(OutputString),"D0 = %6.3f", D0);
+   OutputFile << OutputString << endl;
+   StringLength = snprintf( OutputString, sizeof(OutputString),"a = %6.3f", a);
+   OutputFile << OutputString << endl;
+   StringLength = snprintf( OutputString, sizeof(OutputString),"kappa = %6.3f", kappa);
+   OutputFile << OutputString << endl;
+   StringLength = snprintf( OutputString, sizeof(OutputString),"lambda_ = %6.3f", lambda_);
+   OutputFile << OutputString << endl;
    OutputFile << "ModelName = \"" << M.ModelName() << "\"" << endl;
    OutputFile.close();
    

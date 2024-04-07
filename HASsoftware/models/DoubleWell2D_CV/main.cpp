@@ -35,15 +35,15 @@ int main(int argc, char** argv){
    
    // Double Well potential parameters
    
-   //double D0    = 5.;
+   //double D0    = 1.;
    //double a     = 1.;
-   //double kappa = 5.;
-   //double lambda = 3.0;
+   //double kappa = 1.;
+   //double lambda_ = 1.0;
    
    double D0    = 5.;
    double a     = 1.;
    double kappa = 1.;
-   double lambda = 2.878;
+   double lambda_ = 2.878;
    
 // Create a mass DynamicVector of size d filled with ones
    
@@ -52,7 +52,7 @@ int main(int argc, char** argv){
    masses[2] *= ms;
    
    
-   Model M( d, m, D0, a, kappa, lambda, masses );   // instance of model " 2D Double Well "
+   Model M( d, m, D0, a, kappa, lambda_, masses );   // instance of model " 2D Double Well "
    
 
    cout << "--------------------------------------" << endl;
@@ -84,7 +84,7 @@ int main(int argc, char** argv){
 
 // --------------------------------------------------SET SAMPLE SIZE & TOL--------------------------------------------------------
 
-   size_t T      = 2e6;          // number of MCMC steps
+   size_t T      = 2e7;          // number of MCMC steps
    double neps   = 1.e-10;       // convergence tolerance for Newton projection
    double rrc    = 1.e-8;        // closeness criterion for the reverse check
    int itm       = 6;            // maximum number of Newtons iterations
@@ -118,7 +118,7 @@ int main(int argc, char** argv){
    double kp  = 1.0;       // factor for Soft Momentum proposal standard dev.
    double sp  = kp*eps;    // standard dev. for Soft Momentum proposal
    
-   double dt  = 2.5;       // time step size in RATTLE integrator
+   double dt  = 1.5;       // time step size in RATTLE integrator
    
    bool gradRATTLE   = true;  // if True, use grad V in RALLTE steps; if False, set grad V = 0 in RATTLE steps
    bool LangevinROLL = true;  // if True, use the Langevin ROLL algorithm; if False, use plain ROLL
@@ -193,8 +193,8 @@ int main(int argc, char** argv){
    double Rx =  2.;   // right x boundary for histogram check
    int nx   = 100;       // number of x1 values for the PDF and number of x1 bins
    
-   double Ly = -7.;   // left y boundary for integration / histogram check
-   double Ry =  7.;   // right y boundary for integration / histogram check
+   double Ly = -4.;   // left y boundary for integration / histogram check
+   double Ry =  4.;   // right y boundary for integration / histogram check
    int niy   = 1000;     // number of integration points in y-direction
    
    double Lz = Lx;    // left z boundary for integration / histogram check
@@ -348,6 +348,14 @@ int main(int argc, char** argv){
    StringLength = snprintf( OutputString, sizeof(OutputString),"Ar = %6.3f", Ar);
    OutputFile << OutputString << endl;
    StringLength = snprintf( OutputString, sizeof(OutputString),"d = %10d", d);
+   OutputFile << OutputString << endl;
+   StringLength = snprintf( OutputString, sizeof(OutputString),"D0 = %6.3f", D0);
+   OutputFile << OutputString << endl;
+   StringLength = snprintf( OutputString, sizeof(OutputString),"a = %6.3f", a);
+   OutputFile << OutputString << endl;
+   StringLength = snprintf( OutputString, sizeof(OutputString),"kappa = %6.3f", kappa);
+   OutputFile << OutputString << endl;
+   StringLength = snprintf( OutputString, sizeof(OutputString),"lambda_ = %6.3f", lambda_);
    OutputFile << OutputString << endl;
    OutputFile << "ModelName = \"" << M.ModelName() << "\"" << endl;
    OutputFile.close();

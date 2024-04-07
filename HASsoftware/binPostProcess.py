@@ -115,6 +115,12 @@ if (CV_test==True):
    beta_s = ChainOutput.beta_s  # Assuming this comes from somewhere
    T_q = 1. / beta_q
    T_s = 1./ beta_s
+   
+   # Free Energy parameters
+   D0      = ChainOutput.D0
+   a       = ChainOutput.a
+   kappa   = ChainOutput.kappa
+   lambda_ = ChainOutput.lambda_
 
    # Compute the histogram of CV values
    hist, bin_edges = np.histogram(CV, bins=nCVbins, density=True)
@@ -125,12 +131,6 @@ if (CV_test==True):
    # Calculate the estimated free energy and normalize so the minimum is at zero
    F_hat = -(1. / beta_q) * np.log(hist)
    F_hat -= np.min(F_hat)
-
-   # Free Energy parameters
-   D0 = 5.
-   a = 1.
-   kappa = 1.
-   lambda_ = 2.878
 
    # Define the true free energy profile function
    def F(x):
