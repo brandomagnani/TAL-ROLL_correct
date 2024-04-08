@@ -531,6 +531,10 @@ void HASampler(      vector<double>& chain,        /* Position Samples output fr
             A *= detq / detqn;    // since r(q)/r(qn) = detq/detqn
             
             if ( SU(RG) > A ){      // Accept with probability A,
+               //cout << "------------------" << endl;
+               //cout << exp( beta_q*( Vq - Vqn ) ) << endl;
+               //cout << exp( .5*( pf_sqn - pfn_sqn ) ) << endl;
+               //cout << exp( 5*beta_s*( ps_sqn - psn_sqn ) ) << endl;
                stats->HardRejectionMetropolis++;
             }
             else{

@@ -84,7 +84,7 @@ int main(int argc, char** argv){
 
 // --------------------------------------------------SET SAMPLE SIZE & TOL--------------------------------------------------------
 
-   size_t T      = 2e7;          // number of MCMC steps
+   size_t T      = 2e6;          // number of MCMC steps
    double neps   = 1.e-10;       // convergence tolerance for Newton projection
    double rrc    = 1.e-8;        // closeness criterion for the reverse check
    int itm       = 6;            // maximum number of Newtons iterations
@@ -193,8 +193,8 @@ int main(int argc, char** argv){
    double Rx =  2.;   // right x boundary for histogram check
    int nx   = 100;       // number of x1 values for the PDF and number of x1 bins
    
-   double Ly = -4.;   // left y boundary for integration / histogram check
-   double Ry =  4.;   // right y boundary for integration / histogram check
+   double Ly = -7.;   // left y boundary for integration / histogram check
+   double Ry =  7.;   // right y boundary for integration / histogram check
    int niy   = 1000;     // number of integration points in y-direction
    
    double Lz = Lx;    // left z boundary for integration / histogram check
